@@ -1,0 +1,13 @@
+document-bytes=512022
+keys/forward,102228.1,96.0
+keys/backward,76.9,96.0
+key3-bytes=377
+skip/key3,153.9,96.0
+key5-bytes=36262
+skip/key5,15181.0,96.0
+filler1-bytes=65668
+skip/filler1,9461.7,96.0
+key-bytes=60427
+skip/key,25835.2,96.0
+filler2-bytes=349168
+skip/filler2,51454.0,96.0

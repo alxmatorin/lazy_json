@@ -1,0 +1,14 @@
+find/start,21.7,208.0
+find/end,33716.2,208.0
+find/structured-end,182889.8,208.0
+find/structured-end-hint,27.4,208.0
+find/end-hint,27.3,208.0
+find/large-end-hint,84911.2,208.0
+find/index-head,38770.7,232.0
+findAll/wildcard,44532.9,95208.0
+findAll/single,38825.2,208.0
+put/small,138.9,1280.0
+put/large,11009.6,501280.0
+apply/single,139.4,1232.0
+apply/batch,299.1,1928.0
+checksum=26931200
