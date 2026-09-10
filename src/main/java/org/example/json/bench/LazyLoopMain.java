@@ -67,6 +67,7 @@ public final class LazyLoopMain {
     private static List<String> pathsOf(Op op) {
         return switch (op) {
             case Op.Find find -> List.of(find.path());
+            case Op.FindMany many -> many.paths();
             case Op.Replace replace -> replace.replacements().stream().map(Op.Replacement::path).toList();
         };
     }

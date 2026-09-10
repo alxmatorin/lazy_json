@@ -13,8 +13,10 @@ import java.util.List;
  * пропускаются {@link ByteScanner}-ом. Ключом считается только строка в позиции ключа объекта —
  * текст внутри значений никогда не матчится.
  * <p>
- * Корневой объект по хинту пути ({@code $<key}) обходится с конца: значение встречается раньше ключа,
- * поэтому каждое значение пропускается назад, затем читается его ключ.
+ * Корневой объект идёт через {@link RootIndex}: члены, пройденные раньше, берутся по смещению, остальные
+ * досканируются от границы (по хинту {@code $<key} — с конца: значение встречается раньше ключа,
+ * поэтому оно пропускается назад, затем читается ключ). Конец корня никому не нужен, поэтому обход
+ * прекращается, как только все ключи дерева встречены.
  */
 public final class TrieWalker {
 
@@ -41,28 +43,140 @@ public final class TrieWalker {
     private final byte[] doc;
     private final ByteScanner in;
     private final Sink sink;
-    private Node root;
+    private final RootIndex index;
     private boolean stopped;
 
-    private TrieWalker(byte[] doc, Sink sink) {
+    private TrieWalker(byte[] doc, Sink sink, RootIndex index) {
         this.doc = doc;
         this.in = new ByteScanner(doc);
         this.sink = sink;
+        this.index = index;
     }
 
-    public static void walk(byte[] doc, PathTrie trie, Sink sink) {
-        new TrieWalker(doc, sink).walkRoot(trie);
+    /** @param index смещения членов корня от предыдущих обходов этого документа; пополняется по ходу */
+    public static void walk(byte[] doc, PathTrie trie, Sink sink, RootIndex index) {
+        new TrieWalker(doc, sink, index).walkRoot(trie);
     }
 
     private void walkRoot(PathTrie trie) {
         int start = in.skipWhitespace(0);
-        root = trie.root();
-        if (trie.rootFromEnd() && doc[start] == '{' && !root.keys().isEmpty()) {
-            int end = walkRootObjectBackward(start, root);
-            reportFound(root, start, end);
+        Node root = trie.root();
+        if (doc[start] == '{' && !root.keys().isEmpty()) {
+            walkRootIndexed(start, root, trie.rootFromEnd());
         } else {
             walk(start, root);
         }
+    }
+
+    // --- корень с индексом ---------------------------------------------------------------------------
+
+    /**
+     * Известные ключи берутся из индекса без скана; остальные досканируются от границы непросканированной
+     * области (вперёд или, по хинту, назад), и каждый пройденный член попадает в индекс.
+     * Конец корня никому не нужен, поэтому обход прекращается, как только все ключи дерева встречены.
+     */
+    private void walkRootIndexed(int start, Node node, boolean fromEnd) {
+        index.init(doc, in, start);
+        List<KeyChild> keys = node.keys();
+        boolean[] seen = new boolean[keys.size()];
+        int remaining = walkIndexedKeys(keys, seen);
+        if (stopped) {
+            return;
+        }
+        if (remaining > 0 && !index.complete()) {
+            remaining = fromEnd ? scanRootBackward(keys, seen, remaining) : scanRootForward(keys, seen, remaining);
+        }
+        if (!stopped && remaining > 0 && index.complete()) {
+            reportMissing(keys, sink.needsMissing() ? seen : null, start + 1, index.size() == 0);
+        }
+    }
+
+    private int walkIndexedKeys(List<KeyChild> keys, boolean[] seen) {
+        int remaining = keys.size();
+        for (int i = 0; i < keys.size() && !stopped; i++) {
+            int entry = index.lookup(keys.get(i));
+            if (entry >= 0) {
+                seen[i] = true;
+                remaining--;
+                Node target = keys.get(i).node();
+                if (target.hasChildren()) {
+                    walk(index.valueStart(entry), target);
+                } else {
+                    reportFound(target, index.valueStart(entry), index.valueEnd(entry));
+                }
+            }
+        }
+        return remaining;
+    }
+
+    private int scanRootForward(List<KeyChild> keys, boolean[] seen, int remaining) {
+        int p = index.forward();
+        while (doc[p] != '}') {
+            int keyStart = in.expect(p, '"');
+            int keyEnd = in.skipString(keyStart);
+            boolean escaped = in.lastStringEscaped();
+            int valueStart = in.skipWhitespace(in.expect(in.skipWhitespace(keyEnd), ':') + 1);
+            int child = matchKey(keys, keyStart + 1, keyEnd - 1);
+            int valueEnd;
+            if (child >= 0) {
+                seen[child] = true;
+                remaining--;
+                valueEnd = walk(valueStart, keys.get(child).node());
+            } else {
+                valueEnd = in.skipValue(valueStart);
+            }
+            if (valueEnd < 0) {
+                return remaining; // остановлены внутри значения, его конец неизвестен
+            }
+            index.add(keyStart + 1, keyEnd - 1, escaped, valueStart, valueEnd);
+            p = in.skipWhitespace(valueEnd);
+            if (doc[p] == ',') {
+                p = in.skipWhitespace(p + 1);
+            } else if (doc[p] != '}') {
+                throw in.malformed("expected ',' or '}'", p);
+            }
+            index.forward(p);
+            if (stopped || remaining == 0 || index.complete()) {
+                return remaining;
+            }
+        }
+        index.markComplete();
+        return remaining;
+    }
+
+    private int scanRootBackward(List<KeyChild> keys, boolean[] seen, int remaining) {
+        int p = index.backward();
+        while (p != index.rootStart()) {
+            int valueStart = in.skipValueBack(p);
+            int colon = in.expect(in.skipWhitespaceBack(valueStart - 1), ':');
+            int keyClose = in.expect(in.skipWhitespaceBack(colon - 1), '"');
+            int keyStart = in.skipStringBack(keyClose);
+            boolean escaped = in.lastStringEscaped();
+            int child = matchKey(keys, keyStart + 1, keyClose);
+            if (child >= 0) {
+                seen[child] = true;
+                remaining--;
+                Node target = keys.get(child).node();
+                if (target.hasChildren()) {
+                    walk(valueStart, target);
+                } else {
+                    reportFound(target, valueStart, p + 1);
+                }
+            }
+            index.add(keyStart + 1, keyClose, escaped, valueStart, p + 1);
+            p = in.skipWhitespaceBack(keyStart - 1);
+            if (doc[p] == ',') {
+                p = in.skipWhitespaceBack(p - 1);
+            } else if (doc[p] != '{') {
+                throw in.malformed("expected ',' or '{'", p);
+            }
+            index.backward(p);
+            if (stopped || remaining == 0 || index.complete()) {
+                return remaining;
+            }
+        }
+        index.markComplete();
+        return remaining;
     }
 
     /** @return конец значения (исключительно), либо любое значение, если обход остановлен */
@@ -95,7 +209,6 @@ public final class TrieWalker {
     private int walkObject(int start, Node node) {
         List<KeyChild> keys = node.keys();
         boolean[] seen = sink.needsMissing() ? new boolean[keys.size()] : null;
-        int remaining = keys.size();
         int p = in.skipWhitespace(start + 1);
         if (doc[p] == '}') {
             reportMissing(keys, seen, start + 1, true);
@@ -111,7 +224,7 @@ public final class TrieWalker {
                     seen[child] = true;
                 }
                 p = walk(p, keys.get(child).node());
-                if (stopped || allKeysDone(node, --remaining)) {
+                if (stopped) {
                     return -1;
                 }
             } else {
@@ -128,58 +241,6 @@ public final class TrieWalker {
         }
         reportMissing(keys, seen, start + 1, false);
         return p + 1;
-    }
-
-    /**
-     * Конец корневого объекта никому не нужен: как только все ключи дерева в нём встречены,
-     * остаток документа можно не сканировать. Для вложенных объектов конец нужен родителю.
-     */
-    private boolean allKeysDone(Node node, int remaining) {
-        return node == root && remaining == 0;
-    }
-
-    /** Корневой объект с конца: конец документа известен, поэтому его хвост достижим без прохода по началу. */
-    private int walkRootObjectBackward(int start, Node node) {
-        List<KeyChild> keys = node.keys();
-        boolean[] seen = sink.needsMissing() ? new boolean[keys.size()] : null;
-        int remaining = keys.size();
-        int close = in.expect(in.skipWhitespaceBack(doc.length - 1), '}');
-        int p = in.skipWhitespaceBack(close - 1);
-        if (p == start) {
-            reportMissing(keys, seen, start + 1, true);
-            return close + 1;
-        }
-        while (true) {
-            int valueStart = in.skipValueBack(p);
-            int colon = in.expect(in.skipWhitespaceBack(valueStart - 1), ':');
-            int keyClose = in.expect(in.skipWhitespaceBack(colon - 1), '"');
-            int keyStart = in.skipStringBack(keyClose);
-            int child = matchKey(keys, keyStart + 1, keyClose);
-            if (child >= 0) {
-                if (seen != null) {
-                    seen[child] = true;
-                }
-                Node target = keys.get(child).node();
-                if (target.hasChildren()) {
-                    walk(valueStart, target);
-                } else {
-                    reportFound(target, valueStart, p + 1);
-                }
-                if (stopped || --remaining == 0) {
-                    return -1;
-                }
-            }
-            p = in.skipWhitespaceBack(keyStart - 1);
-            if (doc[p] == ',') {
-                p = in.skipWhitespaceBack(p - 1);
-            } else if (doc[p] == '{' && p == start) {
-                break;
-            } else {
-                throw in.malformed("expected ',' or '{'", p);
-            }
-        }
-        reportMissing(keys, seen, start + 1, false);
-        return close + 1;
     }
 
     private int matchKey(List<KeyChild> keys, int from, int to) {

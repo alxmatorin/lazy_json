@@ -32,8 +32,19 @@ public final class JacksonStrategy implements Strategy {
     public int run(Op op, byte[] doc, int iteration) {
         return switch (op) {
             case Op.Find find -> find(doc, JsonPath.compile(find.path()).segments());
+            case Op.FindMany many -> findMany(doc, many.paths());
             case Op.Replace replace -> replace(doc, replace.replacements(), iteration);
         };
+    }
+
+    private static int findMany(byte[] doc, List<String> paths) {
+        Map<String, Object> root = parse(doc);
+        int matches = 0;
+        for (String path : paths) {
+            matches += countMatches(root, JsonPath.compile(path).segments(), 0);
+        }
+        root.put("touched", true);
+        return matches + serialize(root).length;
     }
 
     private static int find(byte[] doc, List<Segment> segments) {

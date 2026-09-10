@@ -22,8 +22,17 @@ public final class LazyStrategy implements Strategy {
         LazyJson json = LazyJson.of(doc);
         return switch (op) {
             case Op.Find find -> find(json, JsonPath.compile(find.path()));
+            case Op.FindMany many -> findMany(json, many.paths());
             case Op.Replace replace -> replace(json, replace.replacements(), iteration).length;
         };
+    }
+
+    private static int findMany(LazyJson json, List<String> paths) {
+        int total = 0;
+        for (String path : paths) {
+            total += find(json, JsonPath.compile(path));
+        }
+        return total;
     }
 
     private static int find(LazyJson json, JsonPath path) {

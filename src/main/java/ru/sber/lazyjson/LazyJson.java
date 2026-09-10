@@ -1,6 +1,7 @@
 package ru.sber.lazyjson;
 
 import ru.sber.lazyjson.impl.PathTrie;
+import ru.sber.lazyjson.impl.RootIndex;
 import ru.sber.lazyjson.impl.Splicer;
 import ru.sber.lazyjson.impl.TrieWalker;
 
@@ -24,11 +25,17 @@ import java.util.List;
  * Сериализатор — {@link JsonEncoder}, по умолчанию Jackson; свой — через {@link #of(byte[], JsonEncoder)}.
  * Документ и сырые значения должны быть корректным JSON в UTF-8. Это не валидатор:
  * пропускаемые значения полностью не проверяются. Документ не мутируется — правки возвращают новый массив.
+ * <p>
+ * Экземпляр запоминает смещения членов корневого объекта, пройденных предыдущими операциями:
+ * следующий {@code find}/{@code set} на том же экземпляре берёт известный ключ без скана, а неизвестный
+ * досканирует от места, где остановился прошлый обход. Экземпляр не потокобезопасен.
  */
 public final class LazyJson {
 
     private final byte[] doc;
     private final JsonEncoder encoder;
+    /** Смещения членов корня, собранные предыдущими операциями на этом документе. */
+    private final RootIndex index = new RootIndex();
 
     private LazyJson(byte[] doc, JsonEncoder encoder) {
         this.doc = doc;
@@ -66,7 +73,7 @@ public final class LazyJson {
 
     public Slice find(JsonPath path) {
         FirstSliceCollector collector = new FirstSliceCollector();
-        TrieWalker.walk(doc, trieOf(path), collector);
+        TrieWalker.walk(doc, trieOf(path), collector, index);
         return collector.slice;
     }
 
@@ -85,7 +92,7 @@ public final class LazyJson {
 
     public List<Slice> findAll(JsonPath path) {
         SliceCollector collector = new SliceCollector();
-        TrieWalker.walk(doc, trieOf(path), collector);
+        TrieWalker.walk(doc, trieOf(path), collector, index);
         return collector.inDocumentOrder(path.rootFromEnd());
     }
 
@@ -112,7 +119,7 @@ public final class LazyJson {
     }
 
     public byte[] set(JsonPath path, Object value) {
-        return Splicer.apply(doc, trieOf(path), new byte[][]{toJson(value)});
+        return Splicer.apply(doc, trieOf(path), new byte[][]{toJson(value)}, index);
     }
 
     /** {@code json} — готовый JSON-текст, вклеивается как есть. */
@@ -144,12 +151,12 @@ public final class LazyJson {
         }
         List<JsonPath> paths = new ArrayList<>(edits.size());
         byte[][] values = new byte[edits.size()][];
-        int index = 0;
+        int i = 0;
         for (Edit edit : edits) {
             paths.add(edit.path());
-            values[index++] = edit.value();
+            values[i++] = edit.value();
         }
-        return Splicer.apply(doc, PathTrie.of(paths), values);
+        return Splicer.apply(doc, PathTrie.of(paths), values, index);
     }
 
     /** Билдер батча правок: {@code json.edit().set("$a", 1).set("$b", map).apply()}. */

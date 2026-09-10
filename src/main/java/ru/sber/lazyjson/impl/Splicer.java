@@ -70,9 +70,9 @@ public final class Splicer implements TrieWalker.Sink {
         this.singleTarget = values.length == 1 && isChain(trie.root());
     }
 
-    public static byte[] apply(byte[] doc, PathTrie trie, byte[][] values) {
+    public static byte[] apply(byte[] doc, PathTrie trie, byte[][] values, RootIndex index) {
         Splicer splicer = new Splicer(doc, trie, values);
-        TrieWalker.walk(doc, trie, splicer);
+        TrieWalker.walk(doc, trie, splicer, index);
         return splicer.build();
     }
 

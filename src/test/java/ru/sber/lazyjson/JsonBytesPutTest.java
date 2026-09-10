@@ -112,9 +112,9 @@ class JsonBytesPutTest {
 
     @Test
     void rootScanStopsOnceAllBatchKeysAreSeen() {
-        // хвост документа после последнего нужного ключа не читается — иначе мусор в нём был бы ошибкой
-        byte[] forward = doc("{\"a\":1,\"b\":{\"c\":2},\"tail\":\"unterminated");
-        assertEquals("{\"a\":10,\"b\":{\"x\":0,\"c\":20},\"tail\":\"unterminated",
+        // область корня после последнего нужного ключа не читается — иначе мусор в ней был бы ошибкой
+        byte[] forward = doc("{\"a\":1,\"b\":{\"c\":2},\"tail\":[1,,}");
+        assertEquals("{\"a\":10,\"b\":{\"x\":0,\"c\":20},\"tail\":[1,,}",
                 text(LazyJson.of(forward).edit().setRaw("$a", "10").setRaw("$b.c", "20").setRaw("$b.x", "0").apply()));
         byte[] backward = doc("{\"junk\":[1,,,\"a\":1,\"b\":{\"c\":2}}");
         assertEquals("{\"junk\":[1,,,\"a\":10,\"b\":{\"x\":0,\"c\":20}}",

@@ -16,6 +16,7 @@ import java.util.stream.IntStream;
  *   $key3.key4  — объект из 5 строковых полей, в начале
  *   $key5       — большой объект (80 вложенных групп, ~20 КБ), в начале
  *   $key.key5   — большой объект (120 групп, ~30 КБ), на 20 % от начала
+ *   $mid.tag    — один маленький тег на 50 %; заменяется объектом из 80 групп (~17 КБ)
  *   $key1.key2  — список из одного значения, в самом конце
  * </pre>
  * Документов и значений для замены по {@value #POOL_SIZE} разных экземпляров одной формы; итерация {@code i}
@@ -28,6 +29,7 @@ public final class KeysScenario implements Scenario {
 
     private static final int TOTAL_BYTES = 500 * 1024;
     private static final double KEY_KEY5_POSITION = 0.20;
+    private static final double MID_POSITION = 0.50;
     /** {@code "xxx…",} — 100 символов, кавычки и запятая. */
     private static final int FILLER_ITEM_BYTES = 103;
 
@@ -36,9 +38,11 @@ public final class KeysScenario implements Scenario {
     private final Object[] key4Pool = pool(i -> record5("new" + i));
     private final Object[] key5Pool = pool(i -> bigElement(80, 1000 + i));
     private final Object[] keyKey5Pool = pool(i -> bigElement(120, 2000 + i));
+    private final Object[] midPool = pool(i -> bigElement(80, 3000 + i));
     private final Object[] key4Bytes = serialized(key4Pool);
     private final Object[] key5Bytes = serialized(key5Pool);
     private final Object[] keyKey5Bytes = serialized(keyKey5Pool);
+    private final Object[] midBytes = serialized(midPool);
 
     @Override
     public String name() {
@@ -56,7 +60,9 @@ public final class KeysScenario implements Scenario {
         root.put("key5", bigElement(80, 100 * seed + 1));
         root.put("filler1", fillerUpTo(root, (int) (TOTAL_BYTES * KEY_KEY5_POSITION)));
         root.put("key", linked("key5", bigElement(120, 100 * seed + 2)));
-        root.put("filler2", fillerUpTo(root, TOTAL_BYTES));
+        root.put("filler2", fillerUpTo(root, (int) (TOTAL_BYTES * MID_POSITION)));
+        root.put("mid", linked("tag", "small-" + seed));
+        root.put("filler3", fillerUpTo(root, TOTAL_BYTES));
         root.put("key1", linked("key2", List.of(42 + seed)));
         return Json.compact(root);
     }
@@ -66,6 +72,10 @@ public final class KeysScenario implements Scenario {
         return List.of(
                 new Find("find $key1.key2 (list of 1, at end)", "$key1.key2"),
                 new Find("find $<key1.key2 (hint: scan from end)", "$<key1.key2"),
+                new Op.FindMany("find $key1.key2, then $mid.tag, $key.key5 (same instance)",
+                        List.of("$key1.key2", "$mid.tag", "$key.key5")),
+                new Op.FindMany("find $mid.tag, then $key1.key2 (resumes from 50%)",
+                        List.of("$mid.tag", "$key1.key2")),
                 new Replace("edit $<key1.key2 + $<key1.key3 (batch at tail)", List.of(
                         new Op.Replacement("$<key1.key2", i -> 7), new Op.Replacement("$<key1.key3", i -> "new"))),
                 Replace.of("replace $key3.key4 (5 strings) Map, cache hit", "$key3.key4", cycling(key4Pool)),
@@ -76,7 +86,10 @@ public final class KeysScenario implements Scenario {
                 Replace.of("replace $key5 (80 groups) prepared bytes", "$key5", cycling(key5Bytes)),
                 Replace.of("replace $key.key5 (120 groups) Map, cache hit", "$key.key5", cycling(keyKey5Pool)),
                 Replace.of("replace $key.key5 (120 groups) Map, fresh object", "$key.key5", fresh(keyKey5Pool)),
-                Replace.of("replace $key.key5 (120 groups) prepared bytes", "$key.key5", cycling(keyKey5Bytes))
+                Replace.of("replace $key.key5 (120 groups) prepared bytes", "$key.key5", cycling(keyKey5Bytes)),
+                Replace.of("replace $mid.tag -> 80 groups (at 50%) Map, cache hit", "$mid.tag", cycling(midPool)),
+                Replace.of("replace $mid.tag -> 80 groups (at 50%) Map, fresh object", "$mid.tag", fresh(midPool)),
+                Replace.of("replace $mid.tag -> 80 groups (at 50%) prepared bytes", "$mid.tag", cycling(midBytes))
         );
     }
 

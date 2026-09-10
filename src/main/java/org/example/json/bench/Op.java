@@ -9,11 +9,15 @@ import java.util.function.IntFunction;
  * которые нельзя сериализовать заранее. Значение — {@code Map}/{@code List} (сериализуется стратегией
  * на каждой итерации) либо готовый JSON в {@code byte[]} (подставляется как есть).
  */
-public sealed interface Op permits Op.Find, Op.Replace {
+public sealed interface Op permits Op.Find, Op.FindMany, Op.Replace {
 
     String name();
 
     record Find(String name, String path) implements Op {
+    }
+
+    /** Несколько поисков по одному входящему документу — на одном экземпляре обёртки. */
+    record FindMany(String name, List<String> paths) implements Op {
     }
 
     record Replace(String name, List<Replacement> replacements) implements Op {
