@@ -77,6 +77,11 @@ public final class JsonPath {
         return of(List.of(keys));
     }
 
+    /** Ключи из {@code keys[from..]} — хвост массива, например после префикса, который уже разобран. */
+    public static JsonPath of(String[] keys, int from) {
+        return of(java.util.Arrays.asList(keys).subList(from, keys.length));
+    }
+
     public List<Segment> segments() {
         return segments;
     }

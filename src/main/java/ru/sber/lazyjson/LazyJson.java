@@ -59,6 +59,11 @@ public final class LazyJson {
         return find(JsonPath.of(keys));
     }
 
+    /** Ключи из {@code keys[from..]}. */
+    public Slice find(String[] keys, int from) {
+        return find(JsonPath.of(keys, from));
+    }
+
     public Slice find(JsonPath path) {
         FirstSliceCollector collector = new FirstSliceCollector();
         TrieWalker.walk(doc, trieOf(path), collector);
@@ -72,6 +77,10 @@ public final class LazyJson {
 
     public List<Slice> findAll(List<String> keys) {
         return findAll(JsonPath.of(keys));
+    }
+
+    public List<Slice> findAll(String[] keys, int from) {
+        return findAll(JsonPath.of(keys, from));
     }
 
     public List<Slice> findAll(JsonPath path) {
@@ -98,6 +107,10 @@ public final class LazyJson {
         return set(JsonPath.of(keys), value);
     }
 
+    public byte[] set(String[] keys, int from, Object value) {
+        return set(JsonPath.of(keys, from), value);
+    }
+
     public byte[] set(JsonPath path, Object value) {
         return Splicer.apply(doc, trieOf(path), new byte[][]{toJson(value)});
     }
@@ -109,6 +122,10 @@ public final class LazyJson {
 
     public byte[] setRaw(List<String> keys, String json) {
         return set(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public byte[] setRaw(String[] keys, int from, String json) {
+        return set(JsonPath.of(keys, from), json.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Несколько правок за один проход по документу и одну сборку результата. */
@@ -151,6 +168,10 @@ public final class LazyJson {
             return set(JsonPath.of(keys), value);
         }
 
+        public Edits set(String[] keys, int from, Object value) {
+            return set(JsonPath.of(keys, from), value);
+        }
+
         public Edits set(JsonPath path, Object value) {
             edits.add(new Edit(path, toJson(value)));
             return this;
@@ -162,6 +183,10 @@ public final class LazyJson {
 
         public Edits setRaw(List<String> keys, String json) {
             return set(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
+        }
+
+        public Edits setRaw(String[] keys, int from, String json) {
+            return set(JsonPath.of(keys, from), json.getBytes(StandardCharsets.UTF_8));
         }
 
         public byte[] apply() {

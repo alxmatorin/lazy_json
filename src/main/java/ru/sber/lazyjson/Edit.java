@@ -17,6 +17,10 @@ public record Edit(JsonPath path, byte[] value) {
         return new Edit(JsonPath.of(keys), json);
     }
 
+    public static Edit of(String[] keys, int from, byte[] json) {
+        return new Edit(JsonPath.of(keys, from), json);
+    }
+
     /** {@code json} — готовый JSON-текст, вставляется как есть. */
     public static Edit raw(String path, String json) {
         return new Edit(JsonPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
@@ -24,5 +28,9 @@ public record Edit(JsonPath path, byte[] value) {
 
     public static Edit raw(List<String> keys, String json) {
         return new Edit(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static Edit raw(String[] keys, int from, String json) {
+        return new Edit(JsonPath.of(keys, from), json.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -138,6 +138,23 @@ class LazyJsonApiTest {
     }
 
     @Test
+    void pathAsArrayTailFromIndex() {
+        String[] route = {"service", "v1", "key1", "key2", "a", "b"};
+        LazyJson json = LazyJson.of(doc("{\"key1\":{\"key2\":{\"a\":{\"b\":42}}}}"));
+        assertEquals("42", json.find(route, 2).text());
+        assertEquals("{\"a\":{\"b\":42}}", json.find(new String[]{"x", "key1", "key2"}, 1).text());
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":42}}}}", json.find(route, route.length).text());
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":\"x\"}}}}", text(json.set(route, 2, "x")));
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":[]}}}}", text(json.setRaw(route, 2, "[]")));
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":1}}}}",
+                text(json.edit().set(route, 2, 1).apply()));
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":2}}}}",
+                text(json.apply(List.of(Edit.raw(route, 2, "2")))));
+        assertSame(JsonPath.of(route, 2), JsonPath.of("key1", "key2", "a", "b"));
+        assertThrows(IndexOutOfBoundsException.class, () -> JsonPath.of(route, route.length + 1));
+    }
+
+    @Test
     void listPathIsCachedAndPrintsAsText() {
         assertSame(JsonPath.of(List.of("k1", "k2")), JsonPath.of("k1", "k2"));
         assertEquals("$k1.k2", JsonPath.of("k1", "k2").toString());
