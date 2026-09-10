@@ -115,12 +115,12 @@ final class ByteScanner {
         while (p <= doc.length - Long.BYTES) {
             long word = (long) LONGS.get(doc, p);
             long quoteBits = matches(word, QUOTES);
-            long backslashBits = firstMatch(word, BACKSLASHES);
-            if (inString && (quoteBits | backslashBits) == 0) {
-                p = skipStringContent(p + Long.BYTES);
+            if (inString && quoteBits == 0) {
+                p = skipStringEnd(p + Long.BYTES);
                 inString = false;
                 continue;
             }
+            long backslashBits = firstMatch(word, BACKSLASHES);
             if (backslashBits != 0) {
                 this.depth = depth;
                 this.inString = inString;
@@ -159,6 +159,52 @@ final class ByteScanner {
             return found;
         }
         throw malformed("unterminated object or array", doc.length);
+    }
+
+    /** Внутри пропускаемого контейнера escape-флаг не нужен: проверяем слэши только перед кавычкой. */
+    private int skipStringEnd(int p) {
+        while (p <= doc.length - Long.BYTES) {
+            long hits = firstMatch((long) LONGS.get(doc, p), QUOTES);
+            if (hits == 0) {
+                p += Long.BYTES;
+                while (p <= doc.length - 4 * Long.BYTES) {
+                    long hits0 = firstMatch((long) LONGS.get(doc, p), QUOTES);
+                    long hits1 = firstMatch((long) LONGS.get(doc, p + Long.BYTES), QUOTES);
+                    long hits2 = firstMatch((long) LONGS.get(doc, p + 2 * Long.BYTES), QUOTES);
+                    long hits3 = firstMatch((long) LONGS.get(doc, p + 3 * Long.BYTES), QUOTES);
+                    if ((hits0 | hits1 | hits2 | hits3) == 0) {
+                        p += 4 * Long.BYTES;
+                        continue;
+                    }
+                    if ((hits0 | hits1) == 0) {
+                        p += 2 * Long.BYTES;
+                        hits0 = hits2;
+                        hits1 = hits3;
+                    }
+                    if (hits0 == 0) {
+                        p += Long.BYTES;
+                        hits0 = hits1;
+                    }
+                    hits = hits0;
+                    break;
+                }
+                if (hits == 0) {
+                    continue;
+                }
+            }
+            p += Long.numberOfTrailingZeros(hits) >>> 3;
+            if ((backslashesBefore(p) & 1) == 0) {
+                return p + 1;
+            }
+            p++;
+        }
+        while (p < doc.length) {
+            if (doc[p] == '"' && (backslashesBefore(p) & 1) == 0) {
+                return p + 1;
+            }
+            p++;
+        }
+        throw malformed("unterminated string", p);
     }
 
     /**

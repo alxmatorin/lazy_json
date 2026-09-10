@@ -62,6 +62,28 @@ class ByteScannerTest {
     }
 
     @Test
+    void forwardLongStringsCheckEscapesAtQuotesAcrossBlockBoundaries() throws Exception {
+        for (int padding = 0; padding < 64; padding++) {
+            for (int slashes = 0; slashes < 20; slashes++) {
+                String value = "x".repeat(128 + padding) + "\\".repeat(slashes)
+                        + "\"#}][{😀ключ" + "x".repeat(70) + "\\".repeat(slashes);
+                byte[] container = JSON.writeValueAsBytes(List.of(value, List.of(value, 42)));
+                byte[] doc = bytes(" ".repeat(padding) + new String(container, StandardCharsets.UTF_8) + ",true]");
+                assertEquals(padding + container.length, new ByteScanner(doc).skipContainer(padding),
+                        "padding=" + padding + ", slashes=" + slashes);
+            }
+        }
+    }
+
+    @Test
+    void forwardLongStringsRejectMissingUnescapedClosingQuote() {
+        for (String suffix : List.of("", "\\", "\\\"", "\\\"}]")) {
+            byte[] doc = bytes("[\"" + "x".repeat(300) + suffix);
+            assertThrows(IllegalArgumentException.class, () -> new ByteScanner(doc).skipContainer(0));
+        }
+    }
+
+    @Test
     void rejectsUnterminatedBackwardContainerIncludingExhaustedFallback() {
         for (String json : List.of("]", "1,2]", "\"\\\\\"]", "\"\\\"\"]", " ".repeat(20) + "]")) {
             byte[] doc = bytes(json);
