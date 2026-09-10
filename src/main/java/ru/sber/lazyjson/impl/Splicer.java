@@ -3,7 +3,6 @@ package ru.sber.lazyjson.impl;
 import ru.sber.lazyjson.impl.PathTrie.KeyChild;
 import ru.sber.lazyjson.impl.PathTrie.Node;
 
-import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -23,12 +22,40 @@ public final class Splicer implements TrieWalker.Sink {
     private static final class Insertion {
 
         private final boolean emptyParent;
-        private final Map<String, byte[]> members = new LinkedHashMap<>(1);
+        private final Map<String, Parts> members = new LinkedHashMap<>(1);
 
         private Insertion(boolean emptyParent) {
             this.emptyParent = emptyParent;
         }
     }
+
+    /** Куски будущего массива: значения правок лежат по ссылке и копируются один раз, при {@link #join}. */
+    private static final class Parts {
+
+        private final List<byte[]> chunks = new ArrayList<>(4);
+        private int length;
+
+        private Parts add(byte[] chunk) {
+            chunks.add(chunk);
+            length += chunk.length;
+            return this;
+        }
+
+        private byte[] join() {
+            byte[] joined = new byte[length];
+            int at = 0;
+            for (byte[] chunk : chunks) {
+                System.arraycopy(chunk, 0, joined, at, chunk.length);
+                at += chunk.length;
+            }
+            return joined;
+        }
+    }
+
+    private static final byte[] COMMA = {','};
+    private static final byte[] COLON = {':'};
+    private static final byte[] OPEN = {'{'};
+    private static final byte[] CLOSE = {'}'};
 
     private final byte[] doc;
     private final byte[][] values;
@@ -77,6 +104,12 @@ public final class Splicer implements TrieWalker.Sink {
                 "cannot write " + child.path() + ": value at offset " + at + " is not a container of the required kind");
     }
 
+    @Override
+    public boolean outOfRange(Node child, int size, int at) {
+        throw new IllegalArgumentException(
+                "cannot write " + child.path() + ": index is beyond the array of " + size + " elements at offset " + at);
+    }
+
     private void addReplacement(Splice splice) {
         if (firstReplacement == null) {
             firstReplacement = splice;
@@ -98,32 +131,32 @@ public final class Splicer implements TrieWalker.Sink {
         }
     }
 
-    private byte[] member(KeyChild child) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.writeBytes(JsonStrings.quote(child.name()));
-        out.write(':');
-        out.writeBytes(valueOf(child.node()));
-        return out.toByteArray();
+    private Parts member(KeyChild child) {
+        return appendValue(child.node(), new Parts().add(JsonStrings.quote(child.name())).add(COLON));
     }
 
-    /** Значение для узла: явная правка, иначе объект из недостающих ключей ниже по дереву. */
+    /** Значение для найденного узла — явная правка. */
     private byte[] valueOf(Node node) {
+        return values[node.pathIds().getLast()];
+    }
+
+    /** Значение для отсутствующего узла: явная правка, иначе объект из недостающих ключей ниже по дереву. */
+    private Parts appendValue(Node node, Parts out) {
         if (!node.pathIds().isEmpty()) {
-            return values[node.pathIds().getLast()];
+            return out.add(valueOf(node));
         }
         if (node.keys().isEmpty()) {
             throw new IllegalArgumentException("cannot create array element for " + node.path());
         }
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.write('{');
+        out.add(OPEN);
         for (int i = 0; i < node.keys().size(); i++) {
             if (i > 0) {
-                out.write(',');
+                out.add(COMMA);
             }
-            out.writeBytes(member(node.keys().get(i)));
+            KeyChild child = node.keys().get(i);
+            appendValue(child.node(), out.add(JsonStrings.quote(child.name())).add(COLON));
         }
-        out.write('}');
-        return out.toByteArray();
+        return out.add(CLOSE);
     }
 
     private byte[] build() {
@@ -174,19 +207,19 @@ public final class Splicer implements TrieWalker.Sink {
     }
 
     private static byte[] insertionBytes(Insertion insertion) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Parts out = new Parts();
         boolean first = true;
-        for (byte[] member : insertion.members.values()) {
+        for (Parts member : insertion.members.values()) {
             if (!first) {
-                out.write(',');
+                out.add(COMMA);
             }
-            out.writeBytes(member);
+            member.chunks.forEach(out::add);
             first = false;
         }
         if (!insertion.emptyParent) {
-            out.write(',');
+            out.add(COMMA);
         }
-        return out.toByteArray();
+        return out.join();
     }
 
     private static void rejectOverlaps(List<Splice> splices) {

@@ -67,7 +67,7 @@ class LazyJsonApiTest {
 
     @Test
     void editOfAndRaw() {
-        assertEquals("{\"a\":\"s\"}", text(LazyJson.of(doc("{\"a\":1}")).apply(List.of(Edit.of("$a", "s")))));
+        assertEquals("{\"a\":\"s\"}", text(LazyJson.of(doc("{\"a\":1}")).apply(List.of(Edit.of("$a", doc("\"s\""))))));
         assertEquals("{\"a\":s}", text(LazyJson.of(doc("{\"a\":1}")).apply(List.of(Edit.raw("$a", "s")))));
     }
 

@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * JSON-документ как массив байт: поиск и правка значений по пути без разбора в дерево.
@@ -26,9 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * пропускаемые значения полностью не проверяются. Документ не мутируется — правки возвращают новый массив.
  */
 public final class LazyJson {
-
-    private static final int TRIE_CACHE_LIMIT = 10_000;
-    private static final ConcurrentHashMap<JsonPath, PathTrie> TRIES = new ConcurrentHashMap<>();
 
     private final byte[] doc;
     private final JsonEncoder encoder;
@@ -79,6 +75,10 @@ public final class LazyJson {
     /**
      * Заменяет значение по пути или вставляет его (включая недостающие промежуточные объекты).
      * {@code value} сериализуется энкодером; {@code byte[]} считается готовым JSON и вклеивается как есть.
+     * <p>
+     * Энкодер по умолчанию кэширует байты по экземпляру объекта (строки — по значению): объект после
+     * вставки нельзя мутировать, а массивы, полученные из {@link Edit#value()}, нельзя переписывать.
+     * Путь с {@code [*]} над пустым массивом ничего не меняет и не считается ошибкой.
      */
     public byte[] set(String path, Object value) {
         return set(JsonPath.compile(path), value);
@@ -145,20 +145,9 @@ public final class LazyJson {
 
     // --- внутреннее ----------------------------------------------------------------------------------
 
-    private byte[] toJson(Object value) {
-        return value instanceof byte[] json ? json : encoder.encode(value);
-    }
-
-    /** Дерево одного пути переиспользуется, пока кэши путей и деревьев не заполнены. */
+    /** Дерево одиночного пути живёт в самом {@link JsonPath} и строится один раз. */
     private static PathTrie trieOf(JsonPath path) {
-        PathTrie trie = TRIES.get(path);
-        if (trie == null) {
-            trie = PathTrie.of(List.of(path));
-            if (TRIES.size() < TRIE_CACHE_LIMIT) {
-                TRIES.putIfAbsent(path, trie);
-            }
-        }
-        return trie;
+        return path.trie(p -> PathTrie.of(List.of(p)));
     }
 
     private abstract static class ReadCollector implements TrieWalker.Sink {
@@ -175,6 +164,11 @@ public final class LazyJson {
 
         @Override
         public boolean blocked(PathTrie.Node child, int at) {
+            return true;
+        }
+
+        @Override
+        public boolean outOfRange(PathTrie.Node child, int size, int at) {
             return true;
         }
     }
@@ -206,5 +200,9 @@ public final class LazyJson {
             slices.add(new Slice(doc, start, end - start));
             return true;
         }
+    }
+
+    private byte[] toJson(Object value) {
+        return value instanceof byte[] json ? json : encoder.encode(value);
     }
 }

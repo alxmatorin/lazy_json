@@ -31,8 +31,11 @@ public final class TrieWalker {
         /** В объекте нет ключа {@code child}; вставлять можно сразу после {@code '{'}, в позицию {@code insertAt}. */
         boolean missing(KeyChild child, int insertAt, boolean emptyParent);
 
-        /** Путь не может продолжиться: значение в {@code at} — не объект/массив, либо индекс за пределами массива. */
+        /** Путь не может продолжиться: значение в {@code at} — не объект/массив нужного вида. */
         boolean blocked(Node child, int at);
+
+        /** Индекс {@code child} за пределами массива из {@code size} элементов, начинающегося в {@code at}. */
+        boolean outOfRange(Node child, int size, int at);
     }
 
     private final byte[] doc;
@@ -172,12 +175,13 @@ public final class TrieWalker {
         String decoded = null;
         for (int i = 0; i < keys.size(); i++) {
             KeyChild key = keys.get(i);
+            byte[] raw = key.raw();
             if (!in.lastStringEscaped()) {
-                byte[] raw = key.raw();
                 if (raw != null && to - from == raw.length && Arrays.equals(doc, from, to, raw, 0, raw.length)) {
                     return i;
                 }
-            } else {
+            } else if (raw == null || to - from >= raw.length) {
+                // escape только удлиняет запись: диапазон короче имени — совпадения нет, декодировать незачем
                 if (decoded == null) {
                     decoded = JsonStrings.unescape(doc, from, to);
                 }
@@ -241,7 +245,7 @@ public final class TrieWalker {
         }
         for (IndexChild child : node.indices()) {
             if (child.index() >= size && !stopped) {
-                report(sink.blocked(child.node(), at));
+                report(sink.outOfRange(child.node(), size, at));
             }
         }
     }

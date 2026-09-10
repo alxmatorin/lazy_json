@@ -2,6 +2,8 @@ package ru.sber.lazyjson.impl;
 
 import java.nio.charset.StandardCharsets;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * Декодирование и кодирование JSON-строк — только для редкого пути:
  * ключ в документе записан с escape-последовательностями, либо вставляемый ключ требует экранирования.
@@ -20,7 +22,7 @@ final class JsonStrings {
             while (p < to && doc[p] != '\\') {
                 p++;
             }
-            out.append(new String(doc, start, p - start, StandardCharsets.UTF_8));
+            out.append(new String(doc, start, p - start, UTF_8));
             if (p < to) {
                 p = unescapeSequence(doc, p, to, out);
             }
@@ -85,7 +87,7 @@ final class JsonStrings {
                 }
             }
         }
-        return out.append('"').toString().getBytes(StandardCharsets.UTF_8);
+        return out.append('"').toString().getBytes(UTF_8);
     }
 
     private static void appendUnicode(StringBuilder out, char c) {
@@ -107,7 +109,6 @@ final class JsonStrings {
                 return null;
             }
         }
-        return name.getBytes(StandardCharsets.UTF_8);
+        return name.getBytes(UTF_8);
     }
-
 }

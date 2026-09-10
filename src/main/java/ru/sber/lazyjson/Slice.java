@@ -3,6 +3,8 @@ package ru.sber.lazyjson;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 /**
  * Найденное значение любого типа — диапазон байт внутри исходного документа, без копирования.
  * Для строк диапазон включает кавычки, для объектов и массивов — скобки.
@@ -20,7 +22,7 @@ public record Slice(byte[] doc, int offset, int length) {
 
     /** Сырой JSON-текст значения. */
     public String text() {
-        return new String(doc, offset, length, StandardCharsets.UTF_8);
+        return new String(doc, offset, length, UTF_8);
     }
 
     @Override

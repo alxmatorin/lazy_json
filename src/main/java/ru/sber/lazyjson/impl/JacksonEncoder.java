@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.sber.lazyjson.JsonEncoder;
 
 public final class JacksonEncoder implements JsonEncoder {
-
     private final ObjectMapper mapper;
 
     public JacksonEncoder(ObjectMapper mapper) {

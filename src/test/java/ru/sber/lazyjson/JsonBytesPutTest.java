@@ -111,6 +111,12 @@ class JsonBytesPutTest {
     }
 
     @Test
+    void outOfRangeIndexIsReportedAsSuch() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> put("{\"a\":[1]}", "$a[5]", "1"));
+        assertTrue(e.getMessage().contains("beyond the array of 1 elements"), e.getMessage());
+    }
+
+    @Test
     void putCannotCreateArrayElements() {
         assertThrows(IllegalArgumentException.class, () -> put("{\"a\":[1]}", "$a[5]", "1"));
         assertThrows(IllegalArgumentException.class, () -> put("{}", "$a[0]", "1"));

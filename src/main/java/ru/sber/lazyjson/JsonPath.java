@@ -11,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * Хинт {@code <$key1.key2}: ключ корневого объекта ближе к концу — корень обходится с конца.
  * Выгоден, когда значения хвостовых ключей корня малы: чтобы прочитать ключ, его значение
- * приходится пропустить назад целиком.
+ * приходится пропустить назад целиком. Документ должен состоять ровно из одного корневого значения
+ * (после {@code }} — только пробелы); при повторяющихся ключах корня с конца находится последний.
  * <p>
  * Неизменяем; {@link #compile} кэширует результат по тексту пути, так что повторные вызовы
  * с одной строкой возвращают один и тот же экземпляр без разбора, пока в кэше есть место.
@@ -33,6 +34,8 @@ public final class JsonPath {
     private final List<Segment> segments;
     private final boolean hasWildcard;
     private final boolean rootFromEnd;
+    /** Дерево одиночного пути, построенное {@code LazyJson} при первом использовании; тип скрыт от этого пакета. */
+    private volatile Object trie;
 
     private JsonPath(String text, List<Segment> segments, boolean rootFromEnd) {
         this.text = text;
@@ -47,7 +50,7 @@ public final class JsonPath {
             return cached;
         }
         boolean rootFromEnd = text.startsWith("<");
-        JsonPath path = new JsonPath(text, parse(rootFromEnd ? text.substring(1) : text), rootFromEnd);
+        JsonPath path = new JsonPath(text, parse(text, rootFromEnd ? 1 : 0), rootFromEnd);
         if (CACHE.size() < CACHE_LIMIT) {
             cached = CACHE.putIfAbsent(text, path);
         }
@@ -72,12 +75,23 @@ public final class JsonPath {
         return text;
     }
 
-    private static List<Segment> parse(String text) {
-        if (!text.startsWith("$")) {
-            throw invalid(text, 0);
+    /** Кэш-слот для скомпилированного дерева: строится один раз, гонка при первом обращении безвредна. */
+    <T> T trie(java.util.function.Function<JsonPath, T> builder) {
+        @SuppressWarnings("unchecked")
+        T built = (T) trie;
+        if (built == null) {
+            built = builder.apply(this);
+            trie = built;
+        }
+        return built;
+    }
+
+    private static List<Segment> parse(String text, int start) {
+        if (!text.startsWith("$", start)) {
+            throw invalid(text, start);
         }
         List<Segment> segments = new ArrayList<>();
-        int p = 1;
+        int p = start + 1;
         while (p < text.length()) {
             char c = text.charAt(p);
             if (c == '.') {
@@ -132,13 +146,15 @@ public final class JsonPath {
         return close + 2;
     }
 
+    /** Только цифры без знака и ведущих нулей: {@code 0}, {@code 12}; {@code +1}, {@code 01} — ошибка. */
     private static int parseIndex(String text, String digits, int at) {
+        boolean plain = !digits.isEmpty() && digits.chars().allMatch(c -> c >= '0' && c <= '9')
+                && (digits.length() == 1 || digits.charAt(0) != '0');
+        if (!plain) {
+            throw invalid(text, at);
+        }
         try {
-            int index = Integer.parseInt(digits);
-            if (index < 0) {
-                throw invalid(text, at);
-            }
-            return index;
+            return Integer.parseInt(digits);
         } catch (NumberFormatException e) {
             throw invalid(text, at);
         }

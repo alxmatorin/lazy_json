@@ -4,13 +4,12 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Правка «вставить или заменить» с уже готовым JSON в {@code value}.
- * Удобнее собирать через {@link LazyJson#edit()}; напрямую — когда правки готовятся заранее.
+ * Объекты сериализуются через {@link LazyJson#edit()} — энкодером того документа; здесь только готовые байты.
  */
 public record Edit(JsonPath path, byte[] value) {
 
-    /** Значение сериализуется {@link JsonEncoder#DEFAULT}; {@code byte[]} — уже готовый JSON. */
-    public static Edit of(String path, Object value) {
-        return new Edit(JsonPath.compile(path), value instanceof byte[] json ? json : JsonEncoder.DEFAULT.encode(value));
+    public static Edit of(String path, byte[] json) {
+        return new Edit(JsonPath.compile(path), json);
     }
 
     /** {@code json} — готовый JSON-текст, вставляется как есть. */

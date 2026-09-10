@@ -64,6 +64,10 @@ class JsonPathTest {
         assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a["));
         assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a[x]"));
         assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a[-1]"));
+        assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a[+1]"));
+        assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a[01]"));
+        assertThrows(IllegalArgumentException.class, () -> JsonPath.compile("$a[]"));
+        assertEquals(List.of(new JsonPath.Index(0)), JsonPath.compile("$[0]").segments());
     }
 
     @Test
