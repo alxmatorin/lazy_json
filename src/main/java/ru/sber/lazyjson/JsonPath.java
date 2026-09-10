@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Скомпилированный линейный путь, всегда от корня {@code $}: {@code $key1.key2.a.b},
  * элемент массива {@code $items[0].id}, все элементы {@code $items[*].id},
  * ключ с точкой {@code $['a.b'].c}. Сам по себе {@code $} — весь документ.
+ * Тот же путь из ключей без синтаксиса: {@link #of(List)} — {@code JsonPath.of(List.of("key1", "key2", "a", "b"))}.
  * <p>
  * Хинт {@code <$key1.key2}: ключ корневого объекта ближе к концу — корень обходится с конца.
  * Выгоден, когда значения хвостовых ключей корня малы: чтобы прочитать ключ, его значение
@@ -29,6 +30,7 @@ public final class JsonPath {
 
     private static final int CACHE_LIMIT = 10_000;
     private static final ConcurrentHashMap<String, JsonPath> CACHE = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<List<String>, JsonPath> KEYS_CACHE = new ConcurrentHashMap<>();
 
     private final String text;
     private final List<Segment> segments;
@@ -55,6 +57,24 @@ public final class JsonPath {
             cached = CACHE.putIfAbsent(text, path);
         }
         return cached != null ? cached : path;
+    }
+
+    /** Путь из ключей объектов (без индексов и {@code [*]}); кэшируется по списку. */
+    public static JsonPath of(List<String> keys) {
+        JsonPath cached = KEYS_CACHE.get(keys);
+        if (cached != null) {
+            return cached;
+        }
+        List<String> frozen = List.copyOf(keys);
+        JsonPath path = new JsonPath(textOf(frozen), frozen.stream().<Segment>map(Key::new).toList(), false);
+        if (KEYS_CACHE.size() < CACHE_LIMIT) {
+            cached = KEYS_CACHE.putIfAbsent(frozen, path);
+        }
+        return cached != null ? cached : path;
+    }
+
+    public static JsonPath of(String... keys) {
+        return of(List.of(keys));
     }
 
     public List<Segment> segments() {
@@ -84,6 +104,20 @@ public final class JsonPath {
             trie = built;
         }
         return built;
+    }
+
+    /** Текстовая форма пути из ключей: {@code $a.b}, ключ с {@code .}/{@code [}/{@code ']} — в {@code ['…']}. */
+    private static String textOf(List<String> keys) {
+        StringBuilder text = new StringBuilder("$");
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            if (key.isEmpty() || key.contains(".") || key.contains("[") || key.contains("']")) {
+                text.append("['").append(key).append("']");
+            } else {
+                text.append(i == 0 ? "" : ".").append(key);
+            }
+        }
+        return text.toString();
     }
 
     private static List<Segment> parse(String text, int start) {

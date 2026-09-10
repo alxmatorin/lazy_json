@@ -14,6 +14,7 @@ import java.util.List;
  * <pre>
  *   LazyJson json = LazyJson.of(bytes);
  *   Slice id      = json.find("$client.id");                 // диапазон в исходном массиве, любой тип
+ *   Slice id      = json.find(List.of("client", "id"));      // тот же путь списком ключей
  *   List&lt;Slice&gt; ids = json.findAll("$clients[*].id");
  *   byte[] out    = json.set("$client.name", "Ann");           // любой объект → сериализуется (Map, List, POJO…)
  *   byte[] out    = json.set("$client", jsonBytes);            // byte[] — уже готовый JSON, вклеивается как есть
@@ -53,6 +54,11 @@ public final class LazyJson {
         return find(JsonPath.compile(path));
     }
 
+    /** Путь как список ключей объектов: {@code find(List.of("client", "id"))}. */
+    public Slice find(List<String> keys) {
+        return find(JsonPath.of(keys));
+    }
+
     public Slice find(JsonPath path) {
         FirstSliceCollector collector = new FirstSliceCollector();
         TrieWalker.walk(doc, trieOf(path), collector);
@@ -62,6 +68,10 @@ public final class LazyJson {
     /** Все найденные значения (для путей с {@code [*]}) в порядке следования в документе. */
     public List<Slice> findAll(String path) {
         return findAll(JsonPath.compile(path));
+    }
+
+    public List<Slice> findAll(List<String> keys) {
+        return findAll(JsonPath.of(keys));
     }
 
     public List<Slice> findAll(JsonPath path) {
@@ -84,6 +94,10 @@ public final class LazyJson {
         return set(JsonPath.compile(path), value);
     }
 
+    public byte[] set(List<String> keys, Object value) {
+        return set(JsonPath.of(keys), value);
+    }
+
     public byte[] set(JsonPath path, Object value) {
         return Splicer.apply(doc, trieOf(path), new byte[][]{toJson(value)});
     }
@@ -91,6 +105,10 @@ public final class LazyJson {
     /** {@code json} — готовый JSON-текст, вклеивается как есть. */
     public byte[] setRaw(String path, String json) {
         return set(JsonPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public byte[] setRaw(List<String> keys, String json) {
+        return set(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Несколько правок за один проход по документу и одну сборку результата. */
@@ -129,6 +147,10 @@ public final class LazyJson {
             return set(JsonPath.compile(path), value);
         }
 
+        public Edits set(List<String> keys, Object value) {
+            return set(JsonPath.of(keys), value);
+        }
+
         public Edits set(JsonPath path, Object value) {
             edits.add(new Edit(path, toJson(value)));
             return this;
@@ -136,6 +158,10 @@ public final class LazyJson {
 
         public Edits setRaw(String path, String json) {
             return set(JsonPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
+        }
+
+        public Edits setRaw(List<String> keys, String json) {
+            return set(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
         }
 
         public byte[] apply() {

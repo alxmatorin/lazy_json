@@ -1,6 +1,7 @@
 package ru.sber.lazyjson;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Правка «вставить или заменить» с уже готовым JSON в {@code value}.
@@ -12,8 +13,16 @@ public record Edit(JsonPath path, byte[] value) {
         return new Edit(JsonPath.compile(path), json);
     }
 
+    public static Edit of(List<String> keys, byte[] json) {
+        return new Edit(JsonPath.of(keys), json);
+    }
+
     /** {@code json} — готовый JSON-текст, вставляется как есть. */
     public static Edit raw(String path, String json) {
         return new Edit(JsonPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static Edit raw(List<String> keys, String json) {
+        return new Edit(JsonPath.of(keys), json.getBytes(StandardCharsets.UTF_8));
     }
 }

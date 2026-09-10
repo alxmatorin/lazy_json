@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Публичный API {@link LazyJson}: значения любого типа сериализуются, {@code byte[]} и {@code setRaw} — как есть. */
@@ -117,6 +118,32 @@ class LazyJsonApiTest {
         byte[] first = json.set("$a", value);
         byte[] second = json.set("$a", value);
         assertEquals(text(first), text(second));
+    }
+
+    @Test
+    void pathAsListOfKeys() {
+        LazyJson json = LazyJson.of(doc("{\"key1\":{\"key2\":{\"a\":{\"b\":42}}},\"a.b\":{\"c\":1}}"));
+        assertEquals("42", json.find(List.of("key1", "key2", "a", "b")).text());
+        assertEquals("42", json.find(JsonPath.of("key1", "key2", "a", "b")).text());
+        assertEquals("1", json.find(List.of("a.b", "c")).text());
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":42}}},\"a.b\":{\"c\":1}}", json.find(List.of()).text());
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":\"x\"}}},\"a.b\":{\"c\":1}}",
+                text(json.set(List.of("key1", "key2", "a", "b"), "x")));
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":42}}},\"a.b\":{\"c\":[]}}",
+                text(json.setRaw(List.of("a.b", "c"), "[]")));
+        assertEquals("{\"n\":{\"m\":1},\"key1\":{\"key2\":{\"a\":{\"b\":2}}},\"a.b\":{\"c\":1}}",
+                text(json.edit().set(List.of("key1", "key2", "a", "b"), 2).setRaw(List.of("n", "m"), "1").apply()));
+        assertEquals("{\"key1\":{\"key2\":{\"a\":{\"b\":3}}},\"a.b\":{\"c\":1}}",
+                text(json.apply(List.of(Edit.raw(List.of("key1", "key2", "a", "b"), "3")))));
+    }
+
+    @Test
+    void listPathIsCachedAndPrintsAsText() {
+        assertSame(JsonPath.of(List.of("k1", "k2")), JsonPath.of("k1", "k2"));
+        assertEquals("$k1.k2", JsonPath.of("k1", "k2").toString());
+        assertEquals("$['a.b'].c", JsonPath.of("a.b", "c").toString());
+        assertEquals(JsonPath.compile("$['a.b'].c").segments(), JsonPath.of("a.b", "c").segments());
+        assertEquals("$", JsonPath.of().toString());
     }
 
     @Test
