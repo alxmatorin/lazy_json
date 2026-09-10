@@ -59,26 +59,41 @@ public final class JsonPath {
         return cached != null ? cached : path;
     }
 
-    /** Путь из ключей объектов (без индексов и {@code [*]}); кэшируется по списку. */
+    /**
+     * Путь из ключей объектов (без индексов и {@code [*]}); кэшируется по списку.
+     * Если первый ключ начинается с {@code <}, это хинт «обходить корень с конца», сам ключ — без {@code <}:
+     * {@code of(List.of("<key1", "key2"))} ≡ {@code compile("<$key1.key2")}.
+     */
     public static JsonPath of(List<String> keys) {
         JsonPath cached = KEYS_CACHE.get(keys);
         if (cached != null) {
             return cached;
         }
         List<String> frozen = List.copyOf(keys);
-        JsonPath path = new JsonPath(textOf(frozen), frozen.stream().<Segment>map(Key::new).toList(), false);
+        boolean rootFromEnd = !frozen.isEmpty() && frozen.getFirst().startsWith("<");
+        List<String> names = rootFromEnd ? withFirstUnmarked(frozen) : frozen;
+        JsonPath path = new JsonPath(textOf(names, rootFromEnd), names.stream().<Segment>map(Key::new).toList(), rootFromEnd);
         if (KEYS_CACHE.size() < CACHE_LIMIT) {
             cached = KEYS_CACHE.putIfAbsent(frozen, path);
         }
         return cached != null ? cached : path;
     }
 
+    private static List<String> withFirstUnmarked(List<String> keys) {
+        List<String> names = new ArrayList<>(keys);
+        names.set(0, keys.getFirst().substring(1));
+        return names;
+    }
+
     public static JsonPath of(String... keys) {
         return of(List.of(keys));
     }
 
-    /** Ключи из {@code keys[from..]} — хвост массива, например после префикса, который уже разобран. */
+    /** Ключи из {@code keys[from..]} — хвост массива, например после префикса, который уже разобран; хинт {@code <} — у {@code keys[from]}. */
     public static JsonPath of(String[] keys, int from) {
+        if (from < 0 || from > keys.length) {
+            throw new IndexOutOfBoundsException("from " + from + " is outside of " + keys.length + " keys");
+        }
         return of(java.util.Arrays.asList(keys).subList(from, keys.length));
     }
 
@@ -112,8 +127,8 @@ public final class JsonPath {
     }
 
     /** Текстовая форма пути из ключей: {@code $a.b}, ключ с {@code .}/{@code [}/{@code ']} — в {@code ['…']}. */
-    private static String textOf(List<String> keys) {
-        StringBuilder text = new StringBuilder("$");
+    private static String textOf(List<String> keys, boolean rootFromEnd) {
+        StringBuilder text = new StringBuilder(rootFromEnd ? "<$" : "$");
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get(i);
             if (key.isEmpty() || key.contains(".") || key.contains("[") || key.contains("']")) {

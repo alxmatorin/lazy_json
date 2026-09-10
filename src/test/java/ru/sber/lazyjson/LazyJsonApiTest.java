@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -152,6 +154,28 @@ class LazyJsonApiTest {
                 text(json.apply(List.of(Edit.raw(route, 2, "2")))));
         assertSame(JsonPath.of(route, 2), JsonPath.of("key1", "key2", "a", "b"));
         assertThrows(IndexOutOfBoundsException.class, () -> JsonPath.of(route, route.length + 1));
+    }
+
+    @Test
+    void leadingAngleInFirstKeyMeansScanFromEnd() {
+        JsonPath hinted = JsonPath.of(List.of("<key1", "key2"));
+        assertTrue(hinted.rootFromEnd());
+        assertEquals(JsonPath.compile("$key1.key2").segments(), hinted.segments());
+        assertEquals("<$key1.key2", hinted.toString());
+        assertFalse(JsonPath.of(List.of("key1", "<key2")).rootFromEnd());
+        assertEquals(List.of(new JsonPath.Key("key1"), new JsonPath.Key("<key2")), JsonPath.of(List.of("key1", "<key2")).segments());
+
+        String[] route = {"prefix", "<key1", "key2"};
+        assertTrue(JsonPath.of(route, 1).rootFromEnd());
+        assertFalse(JsonPath.of(route, 0).rootFromEnd());
+
+        byte[] doc = doc("{\"big\":\"" + "x".repeat(1000) + "\",\"key1\":{\"key2\":[42]}}");
+        LazyJson json = LazyJson.of(doc);
+        assertEquals("[42]", json.find(List.of("<key1", "key2")).text());
+        assertEquals("[42]", json.find(route, 1).text());
+        assertEquals(json.find(List.of("key1", "key2")), json.find(List.of("<key1", "key2")));
+        assertEquals(text(json.set(List.of("key1", "key2"), 7)), text(json.set(List.of("<key1", "key2"), 7)));
+        assertEquals(text(json.set(List.of("key1", "key2"), 7)), text(json.edit().set(route, 1, 7).apply()));
     }
 
     @Test
