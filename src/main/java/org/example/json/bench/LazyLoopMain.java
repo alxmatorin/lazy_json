@@ -13,18 +13,18 @@ import java.util.List;
  * готовится и выполняется на нём. Время считается отдельно на каждую строку; каждые
  * {@value #REPORT_EVERY} документов печатается tps по окну, в конце — сводная таблица.
  *
- * Аргументы: [число документов] [стратегия: lazy | jackson | all]
+ * Аргументы: [число документов] [стратегия: lazy | all]
  */
 public final class LazyLoopMain {
 
     private static final int DEFAULT_ITERATIONS = 20_000;
     private static final int REPORT_EVERY = 1_000;
-    private static final List<Strategy> STRATEGIES = List.of(new LazyStrategy(), new JacksonStrategy());
+    private static final List<Strategy> STRATEGIES = List.of(new LazyStrategy());
     private static final Scenario SCENARIO = new KeysScenario();
 
     public static void main(String[] args) throws IOException {
         int iterations = args.length > 0 ? Integer.parseInt(args[0]) : DEFAULT_ITERATIONS;
-        List<Strategy> strategies = selectStrategies(args.length > 1 ? args[1] : "all");
+        List<Strategy> strategies = selectStrategies(args.length > 1 ? args[1] : "lazy");
 
         List<byte[]> docs = SCENARIO.documents();
         List<Op> ops = SCENARIO.ops();

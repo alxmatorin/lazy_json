@@ -2,7 +2,10 @@ package ru.sber.lazyjson.impl;
 
 import ru.sber.lazyjson.impl.PathTrie.KeyChild;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Смещения членов корневого объекта, собранные попутно предыдущими обходами того же документа.
@@ -15,10 +18,12 @@ import java.util.Arrays;
 public final class RootIndex {
 
     private static final int FIELDS = 4;
+    private static final int LINEAR_LIMIT = 16;
 
     private byte[] doc;
-    private int[] entries = new int[FIELDS * 8];
-    private boolean[] escaped = new boolean[8];
+    private int[] entries;
+    private String[] decodedNames;
+    private Map<String, Integer> byName;
     private int size;
     private boolean initialized;
     private int rootStart;
@@ -28,10 +33,9 @@ public final class RootIndex {
     /** Последний байт значения последнего непросканированного члена либо {@code '{'}. */
     private int backward;
 
-    /** @return {@code false}, если корень — не объект или он пуст (тогда индексировать нечего) */
-    boolean init(byte[] doc, ByteScanner in, int start) {
+    void init(byte[] doc, ByteScanner in, int start) {
         if (initialized) {
-            return true;
+            return;
         }
         this.doc = doc;
         rootStart = start;
@@ -39,7 +43,6 @@ public final class RootIndex {
         forward = in.skipWhitespace(start + 1);
         backward = in.skipWhitespaceBack(rootClose - 1);
         initialized = true;
-        return true;
     }
 
     int rootStart() {
@@ -76,33 +79,72 @@ public final class RootIndex {
     }
 
     void add(int keyStart, int keyEnd, boolean keyEscaped, int valueStart, int valueEnd) {
-        if (size * FIELDS == entries.length) {
+        ensureCapacity();
+        storeEntry(keyStart, keyEnd, keyEscaped, valueStart, valueEnd);
+        updateLookup();
+    }
+
+    private void ensureCapacity() {
+        if (entries == null) {
+            entries = new int[FIELDS * 8];
+        } else if (size * FIELDS == entries.length) {
             entries = Arrays.copyOf(entries, entries.length * 2);
-            escaped = Arrays.copyOf(escaped, escaped.length * 2);
+            if (decodedNames != null) {
+                decodedNames = Arrays.copyOf(decodedNames, entries.length / FIELDS);
+            }
         }
+    }
+
+    private void storeEntry(int keyStart, int keyEnd, boolean keyEscaped, int valueStart, int valueEnd) {
         int at = size * FIELDS;
         entries[at] = keyStart;
         entries[at + 1] = keyEnd;
         entries[at + 2] = valueStart;
         entries[at + 3] = valueEnd;
-        escaped[size] = keyEscaped;
+        if (keyEscaped) {
+            if (decodedNames == null) {
+                decodedNames = new String[entries.length / FIELDS];
+            }
+            decodedNames[size] = JsonStrings.unescape(doc, keyStart, keyEnd);
+        }
         size++;
+    }
+
+    private void updateLookup() {
+        if (byName != null) {
+            byName.putIfAbsent(nameAt(size - 1), size - 1);
+        } else if (size > LINEAR_LIMIT) {
+            byName = new HashMap<>(size * 2);
+            for (int i = 0; i < size; i++) {
+                byName.putIfAbsent(nameAt(i), i);
+            }
+        }
+    }
+
+    private String nameAt(int entry) {
+        if (decodedNames != null && decodedNames[entry] != null) {
+            return decodedNames[entry];
+        }
+        int at = entry * FIELDS;
+        return new String(doc, entries[at], entries[at + 1] - entries[at], StandardCharsets.UTF_8);
     }
 
     /** @return номер записи с этим ключом или {@code -1} */
     int lookup(KeyChild key) {
+        if (byName != null) {
+            return byName.getOrDefault(key.name(), -1);
+        }
         byte[] raw = key.raw();
         for (int i = 0; i < size; i++) {
             int keyStart = entries[i * FIELDS];
             int keyEnd = entries[i * FIELDS + 1];
-            if (!escaped[i]) {
+            String decoded = decodedNames == null ? null : decodedNames[i];
+            if (decoded == null) {
                 if (raw != null && keyEnd - keyStart == raw.length && Arrays.equals(doc, keyStart, keyEnd, raw, 0, raw.length)) {
                     return i;
                 }
-            } else if (raw == null || keyEnd - keyStart >= raw.length) {
-                if (JsonStrings.unescape(doc, keyStart, keyEnd).equals(key.name())) {
-                    return i;
-                }
+            } else if (decoded.equals(key.name())) {
+                return i;
             }
         }
         return -1;

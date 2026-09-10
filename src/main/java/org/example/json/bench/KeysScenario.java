@@ -11,7 +11,7 @@ import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 
 /**
- * Компактный документ ~500 КБ:
+ * Компактный документ ~500 КБ с 10 корневыми полями; основной объём — внутри объектов и массивов:
  * <pre>
  *   $key3.key4  — объект из 5 строковых полей, в начале
  *   $key5       — большой объект (80 вложенных групп, ~20 КБ), в начале
@@ -57,11 +57,13 @@ public final class KeysScenario implements Scenario {
     private static byte[] document(int seed) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("key3", linked("key4", record5("old" + seed), "extra", record5("extra")));
+        root.put("meta", linked("version", 1, "source", "benchmark-" + seed));
         root.put("key5", bigElement(80, 100 * seed + 1));
         root.put("filler1", fillerUpTo(root, (int) (TOTAL_BYTES * KEY_KEY5_POSITION)));
         root.put("key", linked("key5", bigElement(120, 100 * seed + 2)));
         root.put("filler2", fillerUpTo(root, (int) (TOTAL_BYTES * MID_POSITION)));
         root.put("mid", linked("tag", "small-" + seed));
+        root.put("status", linked("active", true, "sequence", seed));
         root.put("filler3", fillerUpTo(root, TOTAL_BYTES));
         root.put("key1", linked("key2", List.of(42 + seed)));
         return Json.compact(root);

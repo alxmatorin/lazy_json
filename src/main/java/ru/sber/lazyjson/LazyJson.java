@@ -1,5 +1,6 @@
 package ru.sber.lazyjson;
 
+import ru.sber.lazyjson.impl.CompiledEdits;
 import ru.sber.lazyjson.impl.PathTrie;
 import ru.sber.lazyjson.impl.RootIndex;
 import ru.sber.lazyjson.impl.Splicer;
@@ -149,20 +150,17 @@ public final class LazyJson {
             Edit edit = edits.getFirst();
             return set(edit.path(), edit.value());
         }
-        List<JsonPath> paths = new ArrayList<>(edits.size());
-        byte[][] values = new byte[edits.size()][];
-        int i = 0;
-        for (Edit edit : edits) {
-            paths.add(edit.path());
-            values[i++] = edit.value();
-        }
-        return Splicer.apply(doc, PathTrie.of(paths), values, index);
+        return CompiledEdits.of(edits).apply(doc, index);
     }
 
-    /** Билдер батча правок: {@code json.edit().set("$a", 1).set("$b", map).apply()}. */
+    /**
+     * Билдер пакета правок: {@code json.edit().set("$a", 1).set("$b", map).apply()}.
+     * Повторный apply переиспользует скомпилированные пути. Добавление правки сбрасывает подготовку.
+     */
     public final class Edits {
 
         private final List<Edit> edits = new ArrayList<>();
+        private CompiledEdits compiled;
 
         private Edits() {
         }
@@ -181,6 +179,7 @@ public final class LazyJson {
 
         public Edits set(JsonPath path, Object value) {
             edits.add(new Edit(path, toJson(value)));
+            compiled = null;
             return this;
         }
 
@@ -197,7 +196,22 @@ public final class LazyJson {
         }
 
         public byte[] apply() {
-            return LazyJson.this.apply(edits);
+            return applyTo(LazyJson.this);
+        }
+
+        /** Применяет те же сериализованные значения к другому документу, используя индекс целевого документа. */
+        public byte[] applyTo(LazyJson target) {
+            if (edits.size() == 1) {
+                return target.apply(edits);
+            }
+            return compiled().apply(target.doc, target.index);
+        }
+
+        private CompiledEdits compiled() {
+            if (compiled == null) {
+                compiled = CompiledEdits.of(edits);
+            }
+            return compiled;
         }
     }
 
