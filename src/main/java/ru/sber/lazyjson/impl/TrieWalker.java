@@ -41,6 +41,7 @@ public final class TrieWalker {
     private final byte[] doc;
     private final ByteScanner in;
     private final Sink sink;
+    private Node root;
     private boolean stopped;
 
     private TrieWalker(byte[] doc, Sink sink) {
@@ -55,7 +56,7 @@ public final class TrieWalker {
 
     private void walkRoot(PathTrie trie) {
         int start = in.skipWhitespace(0);
-        Node root = trie.root();
+        root = trie.root();
         if (trie.rootFromEnd() && doc[start] == '{' && !root.keys().isEmpty()) {
             int end = walkRootObjectBackward(start, root);
             reportFound(root, start, end);
@@ -94,6 +95,7 @@ public final class TrieWalker {
     private int walkObject(int start, Node node) {
         List<KeyChild> keys = node.keys();
         boolean[] seen = sink.needsMissing() ? new boolean[keys.size()] : null;
+        int remaining = keys.size();
         int p = in.skipWhitespace(start + 1);
         if (doc[p] == '}') {
             reportMissing(keys, seen, start + 1, true);
@@ -109,7 +111,7 @@ public final class TrieWalker {
                     seen[child] = true;
                 }
                 p = walk(p, keys.get(child).node());
-                if (stopped) {
+                if (stopped || allKeysDone(node, --remaining)) {
                     return -1;
                 }
             } else {
@@ -128,10 +130,19 @@ public final class TrieWalker {
         return p + 1;
     }
 
+    /**
+     * Конец корневого объекта никому не нужен: как только все ключи дерева в нём встречены,
+     * остаток документа можно не сканировать. Для вложенных объектов конец нужен родителю.
+     */
+    private boolean allKeysDone(Node node, int remaining) {
+        return node == root && remaining == 0;
+    }
+
     /** Корневой объект с конца: конец документа известен, поэтому его хвост достижим без прохода по началу. */
     private int walkRootObjectBackward(int start, Node node) {
         List<KeyChild> keys = node.keys();
         boolean[] seen = sink.needsMissing() ? new boolean[keys.size()] : null;
+        int remaining = keys.size();
         int close = in.expect(in.skipWhitespaceBack(doc.length - 1), '}');
         int p = in.skipWhitespaceBack(close - 1);
         if (p == start) {
@@ -154,7 +165,7 @@ public final class TrieWalker {
                 } else {
                     reportFound(target, valueStart, p + 1);
                 }
-                if (stopped) {
+                if (stopped || --remaining == 0) {
                     return -1;
                 }
             }

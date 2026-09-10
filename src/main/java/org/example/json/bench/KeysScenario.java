@@ -66,6 +66,8 @@ public final class KeysScenario implements Scenario {
         return List.of(
                 new Find("find $key1.key2 (list of 1, at end)", "$key1.key2"),
                 new Find("find $<key1.key2 (hint: scan from end)", "$<key1.key2"),
+                new Replace("edit $<key1.key2 + $<key1.key3 (batch at tail)", List.of(
+                        new Op.Replacement("$<key1.key2", i -> 7), new Op.Replacement("$<key1.key3", i -> "new"))),
                 Replace.of("replace $key3.key4 (5 strings) Map, cache hit", "$key3.key4", cycling(key4Pool)),
                 Replace.of("replace $key3.key4 (5 strings) Map, fresh object", "$key3.key4", fresh(key4Pool)),
                 Replace.of("replace $key3.key4 (5 strings) prepared bytes", "$key3.key4", cycling(key4Bytes)),

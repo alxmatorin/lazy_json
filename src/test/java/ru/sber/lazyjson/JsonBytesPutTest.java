@@ -111,6 +111,18 @@ class JsonBytesPutTest {
     }
 
     @Test
+    void rootScanStopsOnceAllBatchKeysAreSeen() {
+        // хвост документа после последнего нужного ключа не читается — иначе мусор в нём был бы ошибкой
+        byte[] forward = doc("{\"a\":1,\"b\":{\"c\":2},\"tail\":\"unterminated");
+        assertEquals("{\"a\":10,\"b\":{\"x\":0,\"c\":20},\"tail\":\"unterminated",
+                text(LazyJson.of(forward).edit().setRaw("$a", "10").setRaw("$b.c", "20").setRaw("$b.x", "0").apply()));
+        byte[] backward = doc("{\"junk\":[1,,,\"a\":1,\"b\":{\"c\":2}}");
+        assertEquals("{\"junk\":[1,,,\"a\":10,\"b\":{\"x\":0,\"c\":20}}",
+                text(LazyJson.of(backward).edit().setRaw("$<a", "10").setRaw("$<b.c", "20").setRaw("$b.x", "0").apply()));
+        assertEquals(List.of("2"), LazyJson.of(forward).findAll("$b.c").stream().map(Slice::text).toList());
+    }
+
+    @Test
     void outOfRangeIndexIsReportedAsSuch() {
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> put("{\"a\":[1]}", "$a[5]", "1"));
         assertTrue(e.getMessage().contains("beyond the array of 1 elements"), e.getMessage());

@@ -56,11 +56,18 @@ class JsonBytesRegressionTest {
     }
 
     @Test
-    void backwardFindAllPreservesDocumentOrderWithRepeatedKeys() {
+    void repeatedRootKeysFirstInScanDirectionWins() {
+        // ключи корня считаются уникальными: встретив все нужные, обход останавливается,
+        // поэтому при дублях видно первое вхождение по направлению обхода
         byte[] doc = bytes("{\"a\":[1,2],\"a\":[3,4]}");
-        assertEquals(List.of("1", "2", "3", "4"), LazyJson.of(doc).findAll(JsonPath.compile("$<a[*]"))
-                .stream().map(slice -> slice.text()).toList());
-        assertEquals(2, LazyJson.of(doc).findAll(JsonPath.compile("$a")).size());
+        assertEquals(List.of("1", "2"), LazyJson.of(doc).findAll(JsonPath.compile("$a[*]"))
+                .stream().map(Slice::text).toList());
+        assertEquals(List.of("3", "4"), LazyJson.of(doc).findAll(JsonPath.compile("$<a[*]"))
+                .stream().map(Slice::text).toList());
+        assertEquals(1, LazyJson.of(doc).findAll(JsonPath.compile("$a")).size());
+        // во вложенном объекте конец нужен родителю, там дубли по-прежнему видны все
+        byte[] nested = bytes("{\"o\":{\"a\":1,\"a\":2}}");
+        assertEquals(2, LazyJson.of(nested).findAll(JsonPath.compile("$o.a")).size());
     }
 
     @Test
