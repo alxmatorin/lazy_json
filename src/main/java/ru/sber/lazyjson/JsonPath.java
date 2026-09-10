@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * ключ с точкой {@code $['a.b'].c}. Сам по себе {@code $} — весь документ.
  * Тот же путь из ключей без синтаксиса: {@link #of(List)} — {@code JsonPath.of(List.of("key1", "key2", "a", "b"))}.
  * <p>
- * Хинт {@code <$key1.key2}: ключ корневого объекта ближе к концу — корень обходится с конца.
+ * Хинт {@code $<key1.key2}: ключ корневого объекта ближе к концу — корень обходится с конца.
  * Выгоден, когда значения хвостовых ключей корня малы: чтобы прочитать ключ, его значение
  * приходится пропустить назад целиком. Документ должен состоять ровно из одного корневого значения
  * (после {@code }} — только пробелы); при повторяющихся ключах корня с конца находится последний.
@@ -51,8 +51,8 @@ public final class JsonPath {
         if (cached != null) {
             return cached;
         }
-        boolean rootFromEnd = text.startsWith("<");
-        JsonPath path = new JsonPath(text, parse(text, rootFromEnd ? 1 : 0), rootFromEnd);
+        boolean rootFromEnd = text.startsWith("$<");
+        JsonPath path = new JsonPath(text, parse(text, rootFromEnd), rootFromEnd);
         if (CACHE.size() < CACHE_LIMIT) {
             cached = CACHE.putIfAbsent(text, path);
         }
@@ -62,7 +62,7 @@ public final class JsonPath {
     /**
      * Путь из ключей объектов (без индексов и {@code [*]}); кэшируется по списку.
      * Если первый ключ начинается с {@code <}, это хинт «обходить корень с конца», сам ключ — без {@code <}:
-     * {@code of(List.of("<key1", "key2"))} ≡ {@code compile("<$key1.key2")}.
+     * {@code of(List.of("<key1", "key2"))} ≡ {@code compile("$<key1.key2")}.
      */
     public static JsonPath of(List<String> keys) {
         JsonPath cached = KEYS_CACHE.get(keys);
@@ -105,7 +105,7 @@ public final class JsonPath {
         return hasWildcard;
     }
 
-    /** Корневой объект обходить с конца ({@code <$...}). */
+    /** Корневой объект обходить с конца ({@code $<...}). */
     public boolean rootFromEnd() {
         return rootFromEnd;
     }
@@ -128,7 +128,7 @@ public final class JsonPath {
 
     /** Текстовая форма пути из ключей: {@code $a.b}, ключ с {@code .}/{@code [}/{@code ']} — в {@code ['…']}. */
     private static String textOf(List<String> keys, boolean rootFromEnd) {
-        StringBuilder text = new StringBuilder(rootFromEnd ? "<$" : "$");
+        StringBuilder text = new StringBuilder(rootFromEnd ? "$<" : "$");
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get(i);
             if (key.isEmpty() || key.contains(".") || key.contains("[") || key.contains("']")) {
@@ -140,12 +140,12 @@ public final class JsonPath {
         return text.toString();
     }
 
-    private static List<Segment> parse(String text, int start) {
-        if (!text.startsWith("$", start)) {
-            throw invalid(text, start);
+    private static List<Segment> parse(String text, boolean rootFromEnd) {
+        if (!text.startsWith("$")) {
+            throw invalid(text, 0);
         }
         List<Segment> segments = new ArrayList<>();
-        int p = start + 1;
+        int p = rootFromEnd ? 2 : 1;
         while (p < text.length()) {
             char c = text.charAt(p);
             if (c == '.') {

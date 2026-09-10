@@ -36,11 +36,11 @@ class JsonBytesDifferentialTest {
             int index = random.nextInt(items.size());
             String path = "$items[" + index + "].text";
             assertEquals(items.get(index).get("text"), JSON.readTree(LazyJson.of(doc).find(JsonPath.compile(path)).copy()));
-            assertEquals(items.get(index).get("text"), JSON.readTree(LazyJson.of(doc).find(JsonPath.compile("<" + path)).copy()));
+            assertEquals(items.get(index).get("text"), JSON.readTree(LazyJson.of(doc).find(JsonPath.compile("$<" + path.substring(1))).copy()));
 
             List<Edit> edits = List.of(Edit.raw("$items[*].meta.flag", "true"),
                     Edit.raw("$items[" + index + "].id", "42"), Edit.raw("$new.a", "1"),
-                    Edit.raw("$new.b", "2"), Edit.raw((round % 2 == 0 ? "<" : "") + "$tail", "null"));
+                    Edit.raw("$new.b", "2"), Edit.raw(round % 2 == 0 ? "$<tail" : "$tail", "null"));
             byte[] result = LazyJson.of(doc).apply(edits);
             for (var item : items) {
                 ((ObjectNode) item).withObject("/meta").put("flag", true);

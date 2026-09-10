@@ -25,9 +25,9 @@ public final class JsonBytesBenchmark {
         measureFind("find/start", object, "$id");
         measureFind("find/end", object, "$tail");
         measureFind("find/structured-end", structured, "$tail");
-        measureFind("find/structured-end-hint", structured, "<$tail");
-        measureFind("find/end-hint", object, "<$tail");
-        measureFind("find/large-end-hint", object, "<$padding");
+        measureFind("find/structured-end-hint", structured, "$<tail");
+        measureFind("find/end-hint", object, "$<tail");
+        measureFind("find/large-end-hint", object, "$<padding");
         measureFind("find/index-head", array, "$items[0].id");
         JsonPath wildcard = JsonPath.compile("$items[*].id");
         measure("findAll/wildcard", many, doc -> LazyJson.of(doc).findAll(wildcard).size());

@@ -16,7 +16,7 @@ public final class KeysFindBenchmark {
     private static void measureScenario(byte[] doc) {
         System.out.println("document-bytes=" + doc.length);
         JsonBytesBenchmark.measureFind("keys/forward", doc, "$key1.key2");
-        JsonBytesBenchmark.measureFind("keys/backward", doc, "<$key1.key2");
+        JsonBytesBenchmark.measureFind("keys/backward", doc, "$<key1.key2");
     }
 
     private static void measureSkippedValues(byte[] doc) {

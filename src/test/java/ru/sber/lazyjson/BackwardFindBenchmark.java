@@ -16,8 +16,8 @@ public final class BackwardFindBenchmark {
     }
 
     private static void measureScenario(byte[] doc) {
-        JsonBytesBenchmark.measureFind("backward/short-tail", doc, "<$key1.key2");
-        JsonBytesBenchmark.measureFind("backward/across-document", doc, "<$key3.key4");
+        JsonBytesBenchmark.measureFind("backward/short-tail", doc, "$<key1.key2");
+        JsonBytesBenchmark.measureFind("backward/across-document", doc, "$<key3.key4");
         JsonBytesBenchmark.measureFind("forward/control", doc, "$key1.key2");
     }
 
@@ -26,12 +26,12 @@ public final class BackwardFindBenchmark {
             byte[] value = LazyJson.of(doc).find(JsonPath.compile("$" + key)).copy();
             byte[] wrapped = ("{\"value\":" + new String(value, StandardCharsets.UTF_8) + "}")
                     .getBytes(StandardCharsets.UTF_8);
-            JsonBytesBenchmark.measureFind("backward/" + key, wrapped, "<$value");
+            JsonBytesBenchmark.measureFind("backward/" + key, wrapped, "$<value");
         }
     }
 
     private static void measureLongString() {
         byte[] doc = ("{\"value\":\"" + "x".repeat(500_000) + "\"}").getBytes(StandardCharsets.UTF_8);
-        JsonBytesBenchmark.measureFind("backward/long-string", doc, "<$value");
+        JsonBytesBenchmark.measureFind("backward/long-string", doc, "$<value");
     }
 }

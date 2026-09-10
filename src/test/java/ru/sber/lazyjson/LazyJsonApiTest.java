@@ -161,7 +161,7 @@ class LazyJsonApiTest {
         JsonPath hinted = JsonPath.of(List.of("<key1", "key2"));
         assertTrue(hinted.rootFromEnd());
         assertEquals(JsonPath.compile("$key1.key2").segments(), hinted.segments());
-        assertEquals("<$key1.key2", hinted.toString());
+        assertEquals("$<key1.key2", hinted.toString());
         assertFalse(JsonPath.of(List.of("key1", "<key2")).rootFromEnd());
         assertEquals(List.of(new JsonPath.Key("key1"), new JsonPath.Key("<key2")), JsonPath.of(List.of("key1", "<key2")).segments());
 

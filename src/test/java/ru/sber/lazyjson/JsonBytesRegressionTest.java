@@ -39,7 +39,7 @@ class JsonBytesRegressionTest {
     @Test
     void isolatedSurrogateKeysDoNotBecomeQuestionMarks() {
         byte[] doc = bytes("{\"\\ud800\":1,\"?\":2,\"\\udc00\":3,\"\\ud83d\\ude00\":4}");
-        for (String prefix : List.of("$", "<$")) {
+        for (String prefix : List.of("$", "$<")) {
             assertEquals("2", LazyJson.of(doc).find(JsonPath.compile(prefix + "['?']")).text());
             assertEquals("1", LazyJson.of(doc).find(JsonPath.compile(prefix + "['\ud800']")).text());
             assertEquals("3", LazyJson.of(doc).find(JsonPath.compile(prefix + "['\udc00']")).text());
@@ -58,7 +58,7 @@ class JsonBytesRegressionTest {
     @Test
     void backwardFindAllPreservesDocumentOrderWithRepeatedKeys() {
         byte[] doc = bytes("{\"a\":[1,2],\"a\":[3,4]}");
-        assertEquals(List.of("1", "2", "3", "4"), LazyJson.of(doc).findAll(JsonPath.compile("<$a[*]"))
+        assertEquals(List.of("1", "2", "3", "4"), LazyJson.of(doc).findAll(JsonPath.compile("$<a[*]"))
                 .stream().map(slice -> slice.text()).toList());
         assertEquals(2, LazyJson.of(doc).findAll(JsonPath.compile("$a")).size());
     }
