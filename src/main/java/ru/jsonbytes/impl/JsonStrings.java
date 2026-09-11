@@ -1,7 +1,5 @@
 package ru.jsonbytes.impl;
 
-import java.nio.charset.StandardCharsets;
-
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -13,7 +11,9 @@ final class JsonStrings {
     private JsonStrings() {
     }
 
-    /** Декодирует содержимое строки (без кавычек) из {@code doc[from, to)}. */
+    /**
+     * Декодирует содержимое строки (без кавычек) из {@code doc[from, to)}.
+     */
     static String unescape(byte[] doc, int from, int to) {
         StringBuilder out = new StringBuilder(to - from);
         int p = from;
@@ -65,7 +65,9 @@ final class JsonStrings {
         return value;
     }
 
-    /** Кодирует строку в JSON-литерал с кавычками. */
+    /**
+     * Кодирует строку в JSON-литерал с кавычками.
+     */
     static byte[] quote(String text) {
         StringBuilder out = new StringBuilder(text.length() + 2).append('"');
         for (int i = 0; i < text.length(); i++) {
@@ -97,7 +99,9 @@ final class JsonStrings {
         }
     }
 
-    /** null if UTF-8 encoding would replace an isolated surrogate with '?'. */
+    /**
+     * null if UTF-8 encoding would replace an isolated surrogate with '?'.
+     */
     static byte[] rawKey(String name) {
         for (int i = 0; i < name.length(); i++) {
             char c = name.charAt(i);

@@ -30,14 +30,18 @@ final class ByteScanner {
         return doc;
     }
 
-    /** В последней пропущенной строке (вперёд или назад) встречался {@code \}. */
+    /**
+     * В последней пропущенной строке (вперёд или назад) встречался {@code \}.
+     */
     boolean lastStringEscaped() {
         return lastStringEscaped;
     }
 
     // --- вперёд -------------------------------------------------------------------------------------
 
-    /** @return позиция сразу за значением, начинающимся в {@code p} */
+    /**
+     * @return позиция сразу за значением, начинающимся в {@code p}
+     */
     int skipValue(int p) {
         byte first = doc[p];
         if (first == '"') {
@@ -49,7 +53,9 @@ final class ByteScanner {
         return skipScalar(p);
     }
 
-    /** @param p позиция открывающей кавычки; @return позиция сразу за закрывающей */
+    /**
+     * @param p позиция открывающей кавычки; @return позиция сразу за закрывающей
+     */
     int skipString(int p) {
         lastStringEscaped = false;
         return skipStringContent(p + 1);
@@ -107,7 +113,9 @@ final class ByteScanner {
         throw malformed("unterminated string", p);
     }
 
-    /** @param p позиция открывающей скобки; @return позиция сразу за парной закрывающей */
+    /**
+     * @param p позиция открывающей скобки; @return позиция сразу за парной закрывающей
+     */
     int skipContainer(int p) {
         int depth = 1;
         boolean inString = false;
@@ -161,7 +169,9 @@ final class ByteScanner {
         throw malformed("unterminated object or array", doc.length);
     }
 
-    /** Внутри пропускаемого контейнера escape-флаг не нужен: проверяем слэши только перед кавычкой. */
+    /**
+     * Внутри пропускаемого контейнера escape-флаг не нужен: проверяем слэши только перед кавычкой.
+     */
     private int skipStringEnd(int p) {
         while (p <= doc.length - Long.BYTES) {
             long hits = firstMatch((long) LONGS.get(doc, p), QUOTES);
@@ -209,6 +219,7 @@ final class ByteScanner {
 
     /**
      * Побайтовый проход контейнера по {@code [p, limit)} с состоянием в полях {@link #depth}/{@link #inString}.
+     *
      * @return позиция за закрывающей скобкой, если контейнер закончился, иначе {@code ~next} (следующая позиция)
      */
     private int stepForward(int p, int limit) {
@@ -247,7 +258,9 @@ final class ByteScanner {
         return p;
     }
 
-    /** @return первая непробельная позиция, начиная с {@code p}; конец документа — ошибка */
+    /**
+     * @return первая непробельная позиция, начиная с {@code p}; конец документа — ошибка
+     */
     int skipWhitespace(int p) {
         while (p < doc.length && isWhitespace(doc[p])) {
             p++;
@@ -260,7 +273,9 @@ final class ByteScanner {
 
     // --- назад ---------------------------------------------------------------------------------------
 
-    /** @return позиция первого байта значения, последний байт которого в {@code p} */
+    /**
+     * @return позиция первого байта значения, последний байт которого в {@code p}
+     */
     int skipValueBack(int p) {
         byte last = doc[p];
         if (last == '"') {
@@ -272,7 +287,9 @@ final class ByteScanner {
         return skipScalarBack(p);
     }
 
-    /** @param p позиция закрывающей кавычки; @return позиция открывающей */
+    /**
+     * @param p позиция закрывающей кавычки; @return позиция открывающей
+     */
     int skipStringBack(int p) {
         lastStringEscaped = false;
         return skipStringContentBack(p - 1);
@@ -341,7 +358,9 @@ final class ByteScanner {
         throw malformed("unterminated string", 0);
     }
 
-    /** @param p позиция закрывающей скобки; @return позиция парной открывающей */
+    /**
+     * @param p позиция закрывающей скобки; @return позиция парной открывающей
+     */
     int skipContainerBack(int p) {
         int depth = 1;
         boolean inString = false;
@@ -398,6 +417,7 @@ final class ByteScanner {
 
     /**
      * Побайтовый проход контейнера назад по {@code [limit, p]} с состоянием в полях {@link #depth}/{@link #inString}.
+     *
      * @return позиция открывающей скобки, иначе {@code -next - 2}; даже next=-1 кодируется отрицательным числом
      */
     private int stepBack(int p, int limit) {
@@ -449,7 +469,9 @@ final class ByteScanner {
         return p + 1;
     }
 
-    /** @return последняя непробельная позиция не правее {@code p}; начало документа — ошибка */
+    /**
+     * @return последняя непробельная позиция не правее {@code p}; начало документа — ошибка
+     */
     int skipWhitespaceBack(int p) {
         while (p >= 0 && isWhitespace(doc[p])) {
             p--;
@@ -483,12 +505,16 @@ final class ByteScanner {
     private static final long HIGH_BITS = 0x8080808080808080L;
     private static final long QUOTES = ONES * '"';
     private static final long BACKSLASHES = ONES * '\\';
-    /** {@code '{'}/{@code '['} и {@code '}'}/{@code ']'} отличаются только этим битом. */
+    /**
+     * {@code '{'}/{@code '['} и {@code '}'}/{@code ']'} отличаются только этим битом.
+     */
     private static final long CASE_BIT = ONES * 0x20;
     private static final long OPENS = ONES * '[';
     private static final long CLOSES = ONES * ']';
 
-    /** Старший бит каждого байта, равного {@code pattern} (байт повторён 8 раз); без ложных срабатываний. */
+    /**
+     * Старший бит каждого байта, равного {@code pattern} (байт повторён 8 раз); без ложных срабатываний.
+     */
     private static long matches(long word, long pattern) {
         long x = word ^ pattern;
         return ~(((x & LOW_BITS) + LOW_BITS) | x) & HIGH_BITS;
@@ -502,7 +528,9 @@ final class ByteScanner {
         return firstMatch(word, QUOTES) | firstMatch(word, BACKSLASHES);
     }
 
-    /** Для старшего совпадения нужна точная маска: stringHits может поставить лишние биты выше настоящего. */
+    /**
+     * Для старшего совпадения нужна точная маска: stringHits может поставить лишние биты выше настоящего.
+     */
     private static long exactStringHits(long word) {
         return matches(word, QUOTES) | matches(word, BACKSLASHES);
     }
@@ -512,17 +540,23 @@ final class ByteScanner {
         return (x - ONES) & ~x & HIGH_BITS;
     }
 
-    /** В каждом байте 0 или 0x80: умножение суммирует восемь маркеров в старшем байте (0..8). */
+    /**
+     * В каждом байте 0 или 0x80: умножение суммирует восемь маркеров в старшем байте (0..8).
+     */
     private static int countMarkers(long bits) {
         return (int) (((bits >>> 7) * ONES) >>> 56);
     }
 
-    /** Индекс старшего байта с установленным старшим битом. */
+    /**
+     * Индекс старшего байта с установленным старшим битом.
+     */
     private static int highestByte(long highBits) {
         return Long.BYTES - 1 - (Long.numberOfLeadingZeros(highBits) >>> 3);
     }
 
-    /** Старший бит байта i — чётность числа единиц среди старших битов байтов 0..i. */
+    /**
+     * Старший бит байта i — чётность числа единиц среди старших битов байтов 0..i.
+     */
     private static long prefixXor(long highBits) {
         highBits ^= highBits << 8;
         highBits ^= highBits << 16;
@@ -530,7 +564,9 @@ final class ByteScanner {
         return highBits;
     }
 
-    /** Старший бит байта i — чётность числа единиц среди старших битов байтов i..7. */
+    /**
+     * Старший бит байта i — чётность числа единиц среди старших битов байтов i..7.
+     */
     private static long suffixXor(long highBits) {
         highBits ^= highBits >>> 8;
         highBits ^= highBits >>> 16;

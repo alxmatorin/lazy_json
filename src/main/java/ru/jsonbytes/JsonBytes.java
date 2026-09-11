@@ -1,10 +1,6 @@
 package ru.jsonbytes;
 
-import ru.jsonbytes.impl.CompiledEdits;
-import ru.jsonbytes.impl.PathTrie;
-import ru.jsonbytes.impl.RootIndex;
-import ru.jsonbytes.impl.Splicer;
-import ru.jsonbytes.impl.TrieWalker;
+import ru.jsonbytes.impl.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -35,7 +31,9 @@ public final class JsonBytes {
 
     private final byte[] doc;
     private final JsonEncoder encoder;
-    /** Смещения членов корня, собранные предыдущими операциями на этом документе. */
+    /**
+     * Смещения членов корня, собранные предыдущими операциями на этом документе.
+     */
     private final RootIndex index = new RootIndex();
 
     private JsonBytes(byte[] doc, JsonEncoder encoder) {
@@ -57,17 +55,23 @@ public final class JsonBytes {
 
     // --- чтение --------------------------------------------------------------------------------------
 
-    /** Первое найденное значение или {@code null}. */
+    /**
+     * Первое найденное значение или {@code null}.
+     */
     public Slice find(String path) {
         return find(ElementPath.compile(path));
     }
 
-    /** Путь как список ключей объектов: {@code find(List.of("client", "id"))}. */
+    /**
+     * Путь как список ключей объектов: {@code find(List.of("client", "id"))}.
+     */
     public Slice find(List<String> keys) {
         return find(ElementPath.of(keys));
     }
 
-    /** Ключи из {@code keys[from..]}. */
+    /**
+     * Ключи из {@code keys[from..]}.
+     */
     public Slice find(String[] keys, int from) {
         return find(ElementPath.of(keys, from));
     }
@@ -78,7 +82,9 @@ public final class JsonBytes {
         return collector.slice;
     }
 
-    /** Все найденные значения (для путей с {@code [*]}) в порядке следования в документе. */
+    /**
+     * Все найденные значения (для путей с {@code [*]}) в порядке следования в документе.
+     */
     public List<Slice> findAll(String path) {
         return findAll(ElementPath.compile(path));
     }
@@ -123,7 +129,9 @@ public final class JsonBytes {
         return Splicer.apply(doc, trieOf(path), new byte[][]{toJson(value)}, index);
     }
 
-    /** {@code json} — готовый JSON-текст, вклеивается как есть. */
+    /**
+     * {@code json} — готовый JSON-текст, вклеивается как есть.
+     */
     public byte[] setRaw(String path, String json) {
         return set(ElementPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
     }
@@ -136,7 +144,9 @@ public final class JsonBytes {
         return set(ElementPath.of(keys, from), json.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Несколько правок за один проход по документу и одну сборку результата. */
+    /**
+     * Несколько правок за один проход по документу и одну сборку результата.
+     */
     public Edits edit() {
         return new Edits();
     }
@@ -199,7 +209,9 @@ public final class JsonBytes {
             return applyTo(JsonBytes.this);
         }
 
-        /** Применяет те же сериализованные значения к другому документу, используя индекс целевого документа. */
+        /**
+         * Применяет те же сериализованные значения к другому документу, используя индекс целевого документа.
+         */
         public byte[] applyTo(JsonBytes target) {
             if (edits.size() == 1) {
                 return target.apply(edits);
@@ -217,7 +229,9 @@ public final class JsonBytes {
 
     // --- внутреннее ----------------------------------------------------------------------------------
 
-    /** Дерево одиночного пути живёт в самом {@link ElementPath} и строится один раз. */
+    /**
+     * Дерево одиночного пути живёт в самом {@link ElementPath} и строится один раз.
+     */
     private static PathTrie trieOf(ElementPath path) {
         return path.trie(p -> PathTrie.of(List.of(p)));
     }

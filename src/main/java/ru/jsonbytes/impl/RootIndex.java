@@ -28,9 +28,13 @@ public final class RootIndex {
     private boolean initialized;
     private int rootStart;
     private int rootClose;
-    /** Первый байт следующего непросканированного члена (его кавычка) либо {@code '}'}. */
+    /**
+     * Первый байт следующего непросканированного члена (его кавычка) либо {@code '}'}.
+     */
     private int forward;
-    /** Последний байт значения последнего непросканированного члена либо {@code '{'}. */
+    /**
+     * Последний байт значения последнего непросканированного члена либо {@code '{'}.
+     */
     private int backward;
 
     void init(byte[] doc, ByteScanner in, int start) {
@@ -69,7 +73,9 @@ public final class RootIndex {
         backward = position;
     }
 
-    /** Непросканированной области не осталось. */
+    /**
+     * Непросканированной области не осталось.
+     */
     boolean complete() {
         return forward > backward;
     }
@@ -129,7 +135,9 @@ public final class RootIndex {
         return new String(doc, entries[at], entries[at + 1] - entries[at], StandardCharsets.UTF_8);
     }
 
-    /** @return номер записи с этим ключом или {@code -1} */
+    /**
+     * @return номер записи с этим ключом или {@code -1}
+     */
     int lookup(KeyChild key) {
         if (byName != null) {
             return byName.getOrDefault(key.name(), -1);

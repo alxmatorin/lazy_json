@@ -7,7 +7,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Скомпилированный линейный путь, всегда от корня {@code $}: {@code $key1.key2.a.b},
  * элемент массива {@code $items[0].id}, все элементы {@code $items[*].id},
- * ключ с точкой {@code $['a.b'].c}. Сам по себе {@code $} — весь документ.
+ * ключ с точкой {@code $['a.b'].c} или JSON-экранированием {@code $["a.b"].c}.
+ * Сам по себе {@code $} — весь документ.
  * Тот же путь из ключей без синтаксиса: {@link #of(List)} — {@code ElementPath.of(List.of("key1", "key2", "a", "b"))}.
  * <p>
  * Хинт {@code $<key1.key2}: ключ корневого объекта ближе к концу — корень обходится с конца.
@@ -21,13 +22,17 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ElementPath {
 
-    public sealed interface Segment permits Key, Index, Wildcard {}
+    public sealed interface Segment permits Key, Index, Wildcard {
+    }
 
-    public record Key(String name) implements Segment {}
+    public record Key(String name) implements Segment {
+    }
 
-    public record Index(int index) implements Segment {}
+    public record Index(int index) implements Segment {
+    }
 
-    public record Wildcard() implements Segment {}
+    public record Wildcard() implements Segment {
+    }
 
     private static final int CACHE_LIMIT = 10_000;
     private static final ConcurrentHashMap<String, ElementPath> CACHE = new ConcurrentHashMap<>();
@@ -37,7 +42,9 @@ public final class ElementPath {
     private final List<Segment> segments;
     private final boolean hasWildcard;
     private final boolean rootFromEnd;
-    /** Дерево одиночного пути, построенное {@code JsonBytes} при первом использовании; тип скрыт от этого пакета. */
+    /**
+     * Дерево одиночного пути, построенное {@code JsonBytes} при первом использовании; тип скрыт от этого пакета.
+     */
     private volatile Object trie;
 
     private ElementPath(String text, List<Segment> segments, boolean rootFromEnd) {
@@ -90,7 +97,9 @@ public final class ElementPath {
         return of(List.of(keys));
     }
 
-    /** Ключи из {@code keys[from..]} — хвост массива, например после префикса, который уже разобран; хинт {@code <} — у {@code keys[from]}. */
+    /**
+     * Ключи из {@code keys[from..]} — хвост массива, например после префикса, который уже разобран; хинт {@code <} — у {@code keys[from]}.
+     */
     public static ElementPath of(String[] keys, int from) {
         if (from < 0 || from > keys.length) {
             throw new IndexOutOfBoundsException("from " + from + " is outside of " + keys.length + " keys");
@@ -106,17 +115,24 @@ public final class ElementPath {
         return hasWildcard;
     }
 
-    /** Корневой объект обходить с конца ({@code $<...}). */
+    /**
+     * Корневой объект обходить с конца ({@code $<...}).
+     */
     public boolean rootFromEnd() {
         return rootFromEnd;
     }
 
+    /**
+     * Текст пути, повторный {@link #compile(String)} которого сохраняет сегменты и хинт направления.
+     */
     @Override
     public String toString() {
         return text;
     }
 
-    /** Кэш-слот для скомпилированного дерева: строится один раз, гонка при первом обращении безвредна. */
+    /**
+     * Кэш-слот для скомпилированного дерева: строится один раз, гонка при первом обращении безвредна.
+     */
     <T> T trie(java.util.function.Function<ElementPath, T> builder) {
         @SuppressWarnings("unchecked")
         T built = (T) trie;
@@ -127,18 +143,44 @@ public final class ElementPath {
         return built;
     }
 
-    /** Текстовая форма пути из ключей: {@code $a.b}, ключ с {@code .}/{@code [}/{@code ']} — в {@code ['…']}. */
+    /**
+     * Простые ключи — через точку, специальные — в {@code ['…']}, содержащие {@code ']} — в {@code ["…"]}.
+     */
     private static String textOf(List<String> keys, boolean rootFromEnd) {
         StringBuilder text = new StringBuilder(rootFromEnd ? "$<" : "$");
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get(i);
-            if (key.isEmpty() || key.contains(".") || key.contains("[") || key.contains("']")) {
+            if (key.contains("']")) {
+                appendJsonKey(text, key);
+            } else if (key.isEmpty() || key.contains(".") || key.contains("[")) {
                 text.append("['").append(key).append("']");
             } else {
                 text.append(i == 0 ? "" : ".").append(key);
             }
         }
         return text.toString();
+    }
+
+    private static void appendJsonKey(StringBuilder text, String key) {
+        text.append("[\"");
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            if (c == '"' || c == '\\') {
+                text.append('\\').append(c);
+            } else if (c < 0x20 || Character.isSurrogate(c)) {
+                appendUnicodeEscape(text, c);
+            } else {
+                text.append(c);
+            }
+        }
+        text.append("\"]");
+    }
+
+    private static void appendUnicodeEscape(StringBuilder text, char c) {
+        text.append("\\u");
+        for (int shift = 12; shift >= 0; shift -= 4) {
+            text.append("0123456789abcdef".charAt((c >>> shift) & 15));
+        }
     }
 
     private static List<Segment> parse(String text, boolean rootFromEnd) {
@@ -178,6 +220,9 @@ public final class ElementPath {
         if (text.startsWith("'", from)) {
             return parseQuotedKey(text, from + 1, segments);
         }
+        if (text.startsWith("\"", from)) {
+            return parseJsonKey(text, from + 1, segments);
+        }
         int close = text.indexOf(']', from);
         if (close < 0) {
             throw invalid(text, from);
@@ -191,7 +236,9 @@ public final class ElementPath {
         return close + 1;
     }
 
-    /** {@code ['имя']} — имя с любыми символами, кроме последовательности {@code ']}. */
+    /**
+     * {@code ['имя']} — имя с любыми символами, кроме последовательности {@code ']}.
+     */
     private static int parseQuotedKey(String text, int from, List<Segment> segments) {
         int close = text.indexOf("']", from);
         if (close < 0) {
@@ -201,7 +248,72 @@ public final class ElementPath {
         return close + 2;
     }
 
-    /** Только цифры без знака и ведущих нулей: {@code 0}, {@code 12}; {@code +1}, {@code 01} — ошибка. */
+    /**
+     * {@code ["имя"]} — ключ в форме JSON-строки, включая стандартные escape-последовательности.
+     */
+    private static int parseJsonKey(String text, int from, List<Segment> segments) {
+        StringBuilder key = new StringBuilder();
+        int p = from;
+        while (p < text.length()) {
+            char c = text.charAt(p++);
+            if (c == '"') {
+                if (p >= text.length() || text.charAt(p) != ']') {
+                    throw invalid(text, p);
+                }
+                segments.add(new Key(key.toString()));
+                return p + 1;
+            }
+            if (c < 0x20) {
+                throw invalid(text, p - 1);
+            }
+            if (c == '\\') {
+                p = appendJsonEscape(text, p, key);
+            } else {
+                key.append(c);
+            }
+        }
+        throw invalid(text, p);
+    }
+
+    private static int appendJsonEscape(String text, int at, StringBuilder key) {
+        if (at >= text.length()) {
+            throw invalid(text, at);
+        }
+        switch (text.charAt(at)) {
+            case '"', '\\', '/' -> key.append(text.charAt(at));
+            case 'b' -> key.append('\b');
+            case 'f' -> key.append('\f');
+            case 'n' -> key.append('\n');
+            case 'r' -> key.append('\r');
+            case 't' -> key.append('\t');
+            case 'u' -> {
+                key.append(parseUnicodeEscape(text, at + 1));
+                return at + 5;
+            }
+            default -> throw invalid(text, at);
+        }
+        return at + 1;
+    }
+
+    private static char parseUnicodeEscape(String text, int from) {
+        if (text.length() - from < 4) {
+            throw invalid(text, from);
+        }
+        int value = 0;
+        for (int p = from; p < from + 4; p++) {
+            char c = text.charAt(p);
+            int digit = c <= 0x7f ? Character.digit(c, 16) : -1;
+            if (digit < 0) {
+                throw invalid(text, p);
+            }
+            value = (value << 4) | digit;
+        }
+        return (char) value;
+    }
+
+    /**
+     * Только цифры без знака и ведущих нулей: {@code 0}, {@code 12}; {@code +1}, {@code 01} — ошибка.
+     */
     private static int parseIndex(String text, String digits, int at) {
         boolean plain = !digits.isEmpty() && digits.chars().allMatch(c -> c >= '0' && c <= '9')
                 && (digits.length() == 1 || digits.charAt(0) != '0');

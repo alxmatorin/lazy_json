@@ -6,7 +6,9 @@ import ru.jsonbytes.ElementPath;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Подготовленные пути и значения пакета; смещения документа здесь не сохраняются. */
+/**
+ * Подготовленные пути и значения пакета; смещения документа здесь не сохраняются.
+ */
 public final class CompiledEdits {
 
     private final PathTrie trie;

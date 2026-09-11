@@ -1,6 +1,5 @@
 package ru.jsonbytes;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -15,12 +14,16 @@ public record Slice(byte[] doc, int offset, int length) {
         return offset + length;
     }
 
-    /** Копия байт значения. */
+    /**
+     * Копия байт значения.
+     */
     public byte[] copy() {
         return Arrays.copyOfRange(doc, offset, end());
     }
 
-    /** Сырой JSON-текст значения. */
+    /**
+     * Сырой JSON-текст значения.
+     */
     public String text() {
         return new String(doc, offset, length, UTF_8);
     }

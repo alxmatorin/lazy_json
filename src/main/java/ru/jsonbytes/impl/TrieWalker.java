@@ -22,21 +22,31 @@ public final class TrieWalker {
 
     public interface Sink {
 
-        /** Нужен ли учёт отсутствующих ключей и несовместимых контейнеров. */
+        /**
+         * Нужен ли учёт отсутствующих ключей и несовместимых контейнеров.
+         */
         default boolean needsMissing() {
             return true;
         }
 
-        /** Значение по пути найдено: {@code doc[start, end)}. Вернуть {@code false}, чтобы остановить обход. */
+        /**
+         * Значение по пути найдено: {@code doc[start, end)}. Вернуть {@code false}, чтобы остановить обход.
+         */
         boolean found(Node node, int start, int end);
 
-        /** В объекте нет ключа {@code child}; вставлять можно сразу после {@code '{'}, в позицию {@code insertAt}. */
+        /**
+         * В объекте нет ключа {@code child}; вставлять можно сразу после {@code '{'}, в позицию {@code insertAt}.
+         */
         boolean missing(KeyChild child, int insertAt, boolean emptyParent);
 
-        /** Путь не может продолжиться: значение в {@code at} — не объект/массив нужного вида. */
+        /**
+         * Путь не может продолжиться: значение в {@code at} — не объект/массив нужного вида.
+         */
         boolean blocked(Node child, int at);
 
-        /** Индекс {@code child} за пределами массива из {@code size} элементов, начинающегося в {@code at}. */
+        /**
+         * Индекс {@code child} за пределами массива из {@code size} элементов, начинающегося в {@code at}.
+         */
         boolean outOfRange(Node child, int size, int at);
     }
 
@@ -53,7 +63,9 @@ public final class TrieWalker {
         this.index = index;
     }
 
-    /** @param index смещения членов корня от предыдущих обходов этого документа; пополняется по ходу */
+    /**
+     * @param index смещения членов корня от предыдущих обходов этого документа; пополняется по ходу
+     */
     public static void walk(byte[] doc, PathTrie trie, Sink sink, RootIndex index) {
         new TrieWalker(doc, sink, index).walkRoot(trie);
     }
@@ -179,7 +191,9 @@ public final class TrieWalker {
         return remaining;
     }
 
-    /** @return конец значения (исключительно), либо любое значение, если обход остановлен */
+    /**
+     * @return конец значения (исключительно), либо любое значение, если обход остановлен
+     */
     private int walk(int start, Node node) {
         int end = descend(start, node);
         reportFound(node, start, end);

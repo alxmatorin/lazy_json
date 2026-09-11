@@ -23,12 +23,16 @@ public final class PathTrie {
             this.path = path;
         }
 
-        /** Путь до этого узла, для сообщений об ошибках. */
+        /**
+         * Путь до этого узла, для сообщений об ошибках.
+         */
         public String path() {
             return path;
         }
 
-        /** Пути, которые заканчиваются в этом узле (пусто — узел промежуточный). */
+        /**
+         * Пути, которые заканчиваются в этом узле (пусто — узел промежуточный).
+         */
         public List<Integer> pathIds() {
             return pathIds;
         }
@@ -95,7 +99,9 @@ public final class PathTrie {
         }
     }
 
-    /** Переход по ключу: raw — UTF-8 имя, либо null для имени с одиночным суррогатом. */
+    /**
+     * Переход по ключу: raw — UTF-8 имя, либо null для имени с одиночным суррогатом.
+     */
     public record KeyChild(String name, byte[] raw, Node node) {
 
         private KeyChild(String name, Node node) {
@@ -103,7 +109,9 @@ public final class PathTrie {
         }
     }
 
-    /** Переход по индексу массива. */
+    /**
+     * Переход по индексу массива.
+     */
     public record IndexChild(int index, Node node) {
     }
 
@@ -122,7 +130,9 @@ public final class PathTrie {
         return root;
     }
 
-    /** Хотя бы один путь просит обходить корневой объект с конца. */
+    /**
+     * Хотя бы один путь просит обходить корневой объект с конца.
+     */
     public boolean rootFromEnd() {
         return rootFromEnd;
     }

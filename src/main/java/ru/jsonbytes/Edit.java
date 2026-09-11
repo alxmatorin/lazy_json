@@ -21,7 +21,9 @@ public record Edit(ElementPath path, byte[] value) {
         return new Edit(ElementPath.of(keys, from), json);
     }
 
-    /** {@code json} — готовый JSON-текст, вставляется как есть. */
+    /**
+     * {@code json} — готовый JSON-текст, вставляется как есть.
+     */
     public static Edit raw(String path, String json) {
         return new Edit(ElementPath.compile(path), json.getBytes(StandardCharsets.UTF_8));
     }

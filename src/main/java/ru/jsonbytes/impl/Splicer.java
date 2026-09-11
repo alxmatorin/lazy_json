@@ -3,11 +3,7 @@ package ru.jsonbytes.impl;
 import ru.jsonbytes.impl.PathTrie.KeyChild;
 import ru.jsonbytes.impl.PathTrie.Node;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Собирает результат правок одной склейкой: нетронутые куски исходного документа копируются
@@ -18,8 +14,11 @@ public final class Splicer implements TrieWalker.Sink {
 
     private sealed interface Patch permits Splice, Insert {
         int start();
+
         int end();
+
         int length();
+
         int copyTo(byte[] result, int at);
     }
 
@@ -63,7 +62,9 @@ public final class Splicer implements TrieWalker.Sink {
         }
     }
 
-    /** Куски будущего массива: значения правок лежат по ссылке и копируются один раз, в итоговый массив. */
+    /**
+     * Куски будущего массива: значения правок лежат по ссылке и копируются один раз, в итоговый массив.
+     */
     private static final class Parts {
 
         private final List<byte[]> chunks = new ArrayList<>(4);
@@ -167,12 +168,16 @@ public final class Splicer implements TrieWalker.Sink {
         return appendValue(child.node(), new Parts().add(JsonStrings.quote(child.name())).add(COLON));
     }
 
-    /** Значение для найденного узла — явная правка. */
+    /**
+     * Значение для найденного узла — явная правка.
+     */
     private byte[] valueOf(Node node) {
         return values[node.pathIds().getLast()];
     }
 
-    /** Значение для отсутствующего узла: явная правка, иначе объект из недостающих ключей ниже по дереву. */
+    /**
+     * Значение для отсутствующего узла: явная правка, иначе объект из недостающих ключей ниже по дереву.
+     */
     private Parts appendValue(Node node, Parts out) {
         if (!node.pathIds().isEmpty()) {
             return out.add(valueOf(node));
