@@ -1,8 +1,8 @@
 package perfs.json.bench;
 
-import ru.sber.jsonbytes.JsonBytes;
-import ru.sber.jsonbytes.ElementPath;
-import ru.sber.jsonbytes.Slice;
+import ru.jsonbytes.JsonBytes;
+import ru.jsonbytes.ElementPath;
+import ru.jsonbytes.Slice;
 
 import java.io.IOException;
 import java.util.ArrayList;

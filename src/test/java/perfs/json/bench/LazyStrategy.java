@@ -1,7 +1,7 @@
 package perfs.json.bench;
 
-import ru.sber.jsonbytes.JsonBytes;
-import ru.sber.jsonbytes.ElementPath;
+import ru.jsonbytes.JsonBytes;
+import ru.jsonbytes.ElementPath;
 
 import java.util.List;
 

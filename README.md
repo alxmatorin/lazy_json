@@ -2,7 +2,7 @@
 
 Поиск и замена значений в JSON прямо в `byte[]`, без разбора всего документа в дерево или `Map`.
 Поиск возвращает диапазон исходных байт, а правки собирают новый документ, копируя неизменённые участки как есть.
-Главный класс — `ru.sber.jsonbytes.JsonBytes`.
+Главный класс — `ru.jsonbytes.JsonBytes`.
 
 ## Сборка
 
@@ -16,8 +16,8 @@ mvn package
 ## Быстрый старт
 
 ```java
-import ru.sber.jsonbytes.JsonBytes;
-import ru.sber.jsonbytes.Slice;
+import ru.jsonbytes.JsonBytes;
+import ru.jsonbytes.Slice;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -64,10 +64,10 @@ public class Example {
 Путь можно подготовить и переиспользовать:
 
 ```java
-var path = ru.sber.jsonbytes.ElementPath.compile("$items[*].id");
+var path = ru.jsonbytes.ElementPath.compile("$items[*].id");
 var matchedIds = json.findAll(path);
 
-var clientId = ru.sber.jsonbytes.ElementPath.of("client", "id");
+var clientId = ru.jsonbytes.ElementPath.of("client", "id");
 Slice preparedId = json.find(clientId);
 Slice sameId = json.find(java.util.List.of("client", "id"));
 ```
@@ -179,7 +179,7 @@ Slice foundSpecial = JsonBytes.of(specialKey).find(java.util.List.of("client", "
 
 ```java
 var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-var encoder = ru.sber.jsonbytes.JsonEncoder.jackson(mapper);
+var encoder = ru.jsonbytes.JsonEncoder.jackson(mapper);
 var document = JsonBytes.of(source, encoder);
 ```
 

@@ -3,8 +3,8 @@ package perfs.json.bench;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.util.RawValue;
-import ru.sber.jsonbytes.ElementPath;
-import ru.sber.jsonbytes.ElementPath.Segment;
+import ru.jsonbytes.ElementPath;
+import ru.jsonbytes.ElementPath.Segment;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
